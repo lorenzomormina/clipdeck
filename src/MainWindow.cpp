@@ -39,10 +39,11 @@ bool MainWindow::CreateMainWindow() {
         return false;
     }
 
-    hwnd_ = CreateWindowExW(
-        WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle, WS_OVERLAPPEDWINDOW,
-        CW_USEDEFAULT, CW_USEDEFAULT, config_.windowSettings.width,
-        config_.windowSettings.height, nullptr, nullptr, instance_, this);
+    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle,
+                            WS_OVERLAPPED | WS_SYSMENU, CW_USEDEFAULT,
+                            CW_USEDEFAULT, config_.windowSettings.width,
+                            config_.windowSettings.height, nullptr, nullptr,
+                            instance_, this);
 
     if (!hwnd_)
         return false;

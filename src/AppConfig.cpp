@@ -15,7 +15,8 @@ namespace {
 constexpr wchar_t kConfigFileName[] = L"clipass.ini";
 constexpr wchar_t kIconFileName[] = L"clipass.ico";
 constexpr wchar_t kItemsSectionName[] = L"Items";
-constexpr wchar_t kSettingsSectionName[] = L"Settings";
+constexpr wchar_t kGeneralSettingsSectionName[] = L"General";
+constexpr wchar_t kWindowSettingsSectionName[] = L"Window";
 constexpr DWORD kIniBufferSize = 32768;
 
 std::filesystem::path GetExecutableDirectory() {
@@ -155,21 +156,21 @@ AppConfig LoadAppConfig() {
     //     ReadIniString(config.configPath, kSettingsSectionName, L"Hotkey",
     //                   config.generalSettings.hotkeyText.c_str());
     config.generalSettings.startHidden =
-        ReadIniBool(config.configPath, kSettingsSectionName, L"StartHidden",
-                    config.generalSettings.startHidden);
+        ReadIniBool(config.configPath, kGeneralSettingsSectionName,
+                    L"StartHidden", config.generalSettings.startHidden);
+    config.generalSettings.autoClose =
+        ReadIniBool(config.configPath, kGeneralSettingsSectionName,
+                    L"AutoClose", config.generalSettings.autoClose);
+    config.generalSettings.autoPaste =
+        ReadIniBool(config.configPath, kGeneralSettingsSectionName,
+                    L"AutoPaste", config.generalSettings.autoPaste);
+    config.items = LoadItems(config.configPath);
     config.windowSettings.width =
-        ReadIniInt(config.configPath, kSettingsSectionName, L"Width",
+        ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Width",
                    config.windowSettings.width);
     config.windowSettings.height =
-        ReadIniInt(config.configPath, kSettingsSectionName, L"Height",
+        ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Height",
                    config.windowSettings.height);
-    config.generalSettings.autoClose =
-        ReadIniBool(config.configPath, kSettingsSectionName, L"AutoClose",
-                    config.generalSettings.autoClose);
-    config.generalSettings.autoPaste =
-        ReadIniBool(config.configPath, kSettingsSectionName, L"AutoPaste",
-                    config.generalSettings.autoPaste);
-    config.items = LoadItems(config.configPath);
 
     return config;
 }
