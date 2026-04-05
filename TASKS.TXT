@@ -11,6 +11,7 @@
 # 11 implementare l'override delle setting per i singoli item (AutoPaste, AutoClose, ...)
 # 12 implementare navigazione tra textbox e listbox
 # 13 mettere titolo nella title bar
+# 14 cambiare icona
 
 --- DONE
 #  7 rendere la finestra non resizeable

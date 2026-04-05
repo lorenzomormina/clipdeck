@@ -29,6 +29,7 @@ struct GeneralSettings {
 struct WindowSettings {
     int width = 400;
     int height = 300;
+    int margin = 4;
 };
 
 struct AppConfig {

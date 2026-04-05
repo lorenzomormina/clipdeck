@@ -171,6 +171,9 @@ AppConfig LoadAppConfig() {
     config.windowSettings.height =
         ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Height",
                    config.windowSettings.height);
+    config.windowSettings.margin =
+        ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Margin",
+                   config.windowSettings.margin);
 
     return config;
 }
