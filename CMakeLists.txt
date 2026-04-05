@@ -11,7 +11,10 @@ add_executable(
     src/main.cpp
     src/AppConfig.cpp
     src/ClipboardUtils.cpp
+    src/ClipListView.cpp
+    src/GlobalHotkey.cpp
     src/MainWindow.cpp
+    src/TrayIcon.cpp
 )
 
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

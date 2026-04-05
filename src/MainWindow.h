@@ -1,7 +1,10 @@
 #pragma once
 
 #include "AppConfig.h"
+#include "ClipListView.h"
 #include "ClipboardUtils.h"
+#include "GlobalHotkey.h"
+#include "TrayIcon.h"
 
 #include <windows.h>
 
@@ -10,7 +13,6 @@ namespace clipass {
 class MainWindow {
   public:
     MainWindow(HINSTANCE instance, AppConfig config);
-    ~MainWindow();
 
     int Run(int nCmdShow);
 
@@ -19,46 +21,39 @@ class MainWindow {
     static constexpr wchar_t kWindowTitle[] = L"clipass";
     static constexpr UINT kTrayIconId = 1;
     static constexpr UINT kTrayCallbackMessage = WM_APP + 1;
-    static constexpr int kTrayOpenCommandId = 1001;
-    static constexpr int kTrayExitCommandId = 1002;
-    static constexpr int kTrayConfigCommandId = 1003;
-    static constexpr int kTrayReloadCommandId = 1004;
-    static constexpr int kHotkeyId = 0xBEEF;
+    static constexpr int kToggleHotkeyId = 1006;
 
-    bool CreateMainWindow();
     bool RegisterWindowClass() const;
+    bool CreateMainWindow();
+    bool RegisterGlobalHotkey();
+    void ReloadConfig();
 
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
-    LRESULT OnCreate();
-    void OnDestroy();
-    void OnHotkey();
-    void OnTrayIconMessage(LPARAM lParam);
-    void OnCommand(WPARAM wParam, LPARAM lParam);
-    void ToggleVisibility();
-    void ShowWindowAndActivate();
-    void HideWindow();
-    void PopulateListBox() const;
-    void ActivateSelectedItem();
-    bool RegisterGlobalHotkey() const;
-    bool AddTrayIcon();
-    void RemoveTrayIcon();
-    void ReleaseUiResources();
-    HFONT CreateSystemUiFont() const;
-
     static LRESULT CALLBACK WindowProcSetup(HWND hwnd, UINT message,
                                             WPARAM wParam, LPARAM lParam);
     static LRESULT CALLBACK WindowProcThunk(HWND hwnd, UINT message,
                                             WPARAM wParam, LPARAM lParam);
-    static LRESULT CALLBACK ListBoxProcThunk(HWND hwnd, UINT message,
-                                             WPARAM wParam, LPARAM lParam);
+
+    LRESULT OnCreate();
+    void OnDestroy();
+    void OnActivate(WPARAM wParam);
+    void OnCommand(WPARAM wParam, LPARAM lParam);
+    void OnTrayCallback(LPARAM lParam);
+    void OnTrayMenuAction(TrayIcon::MenuAction action);
+    void OnClipListEvent(ClipListView::Event event);
+    void OnHotkey();
+    void ActivateSelectedItem();
+
+    void ToggleVisibility();
+    void ShowWindowAndActivate();
+    void HideWindow();
 
     HINSTANCE instance_;
     AppConfig config_;
     HWND hwnd_ = nullptr;
-    HWND listBox_ = nullptr;
-    HFONT uiFont_ = nullptr;
-    HICON trayIcon_ = nullptr;
-    WNDPROC originalListBoxProc_ = nullptr;
+    TrayIcon trayIcon_;
+    GlobalHotkey hotkey_;
+    ClipListView clipListView_;
     FocusSnapshot lastFocus_;
 };
 

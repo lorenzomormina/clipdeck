@@ -22,6 +22,8 @@ struct ClipItem {
 struct AppSettings {
     std::wstring hotkeyText = L"Ctrl+Shift+Space";
     bool startHidden = true;
+    int width = 400;
+    int height = 300;
     bool autoClose = true;
     bool autoPaste = false;
 };

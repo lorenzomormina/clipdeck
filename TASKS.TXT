@@ -1,0 +1,6 @@
+#1 premere ESC non chiude la finestra se il focus è sulla ListBox
+#2 rimuovere il bottone X della finestra
+#3 ancorare la ListBox alla finestra
+#4 implementare la setting della shortcut
+#5 implementare la search bar
+#6 implementare finestra config

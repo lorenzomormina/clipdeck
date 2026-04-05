@@ -107,6 +107,12 @@ bool ReadIniBool(const std::filesystem::path &configPath,
     return defaultValue;
 }
 
+int ReadIniInt(const std::filesystem::path &configPath, const wchar_t *section,
+               const wchar_t *key, int defaultValue) {
+    return GetPrivateProfileIntW(section, key, defaultValue,
+                                 configPath.c_str());
+}
+
 std::vector<ClipItem> LoadItems(const std::filesystem::path &configPath) {
     std::vector<ClipItem> items;
     std::vector<wchar_t> sectionNames(kIniBufferSize, L'\0');
@@ -151,6 +157,10 @@ AppConfig LoadAppConfig() {
     config.settings.startHidden =
         ReadIniBool(config.configPath, kSettingsSectionName, L"StartHidden",
                     config.settings.startHidden);
+    config.settings.width = ReadIniInt(config.configPath, kSettingsSectionName,
+                                       L"Width", config.settings.width);
+    config.settings.height = ReadIniInt(config.configPath, kSettingsSectionName,
+                                        L"Height", config.settings.height);
     config.settings.autoClose =
         ReadIniBool(config.configPath, kSettingsSectionName, L"AutoClose",
                     config.settings.autoClose);
