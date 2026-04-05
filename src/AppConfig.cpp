@@ -151,22 +151,24 @@ AppConfig LoadAppConfig() {
     config.configPath = config.executableDirectory / kConfigFileName;
     config.iconPath = config.executableDirectory / kIconFileName;
 
-    config.settings.hotkeyText =
-        ReadIniString(config.configPath, kSettingsSectionName, L"Hotkey",
-                      config.settings.hotkeyText.c_str());
-    config.settings.startHidden =
+    // config.generalSettings.hotkeyText =
+    //     ReadIniString(config.configPath, kSettingsSectionName, L"Hotkey",
+    //                   config.generalSettings.hotkeyText.c_str());
+    config.generalSettings.startHidden =
         ReadIniBool(config.configPath, kSettingsSectionName, L"StartHidden",
-                    config.settings.startHidden);
-    config.settings.width = ReadIniInt(config.configPath, kSettingsSectionName,
-                                       L"Width", config.settings.width);
-    config.settings.height = ReadIniInt(config.configPath, kSettingsSectionName,
-                                        L"Height", config.settings.height);
-    config.settings.autoClose =
+                    config.generalSettings.startHidden);
+    config.windowSettings.width =
+        ReadIniInt(config.configPath, kSettingsSectionName, L"Width",
+                   config.windowSettings.width);
+    config.windowSettings.height =
+        ReadIniInt(config.configPath, kSettingsSectionName, L"Height",
+                   config.windowSettings.height);
+    config.generalSettings.autoClose =
         ReadIniBool(config.configPath, kSettingsSectionName, L"AutoClose",
-                    config.settings.autoClose);
-    config.settings.autoPaste =
+                    config.generalSettings.autoClose);
+    config.generalSettings.autoPaste =
         ReadIniBool(config.configPath, kSettingsSectionName, L"AutoPaste",
-                    config.settings.autoPaste);
+                    config.generalSettings.autoPaste);
     config.items = LoadItems(config.configPath);
 
     return config;

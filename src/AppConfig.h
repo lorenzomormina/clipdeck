@@ -19,20 +19,24 @@ struct ClipItem {
     }
 };
 
-struct AppSettings {
-    std::wstring hotkeyText = L"Ctrl+Shift+Space";
+struct GeneralSettings {
+    // std::wstring hotkeyText = L"Ctrl+Shift+Space";
     bool startHidden = true;
-    int width = 400;
-    int height = 300;
     bool autoClose = true;
     bool autoPaste = false;
+};
+
+struct WindowSettings {
+    int width = 400;
+    int height = 300;
 };
 
 struct AppConfig {
     std::filesystem::path executableDirectory;
     std::filesystem::path configPath;
     std::filesystem::path iconPath;
-    AppSettings settings;
+    GeneralSettings generalSettings;
+    WindowSettings windowSettings;
     std::vector<ClipItem> items;
 };
 

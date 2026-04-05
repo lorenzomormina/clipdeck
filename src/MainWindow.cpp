@@ -39,16 +39,16 @@ bool MainWindow::CreateMainWindow() {
         return false;
     }
 
-    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle,
-                            WS_OVERLAPPEDWINDOW, CW_USEDEFAULT, CW_USEDEFAULT,
-                            config_.settings.width, config_.settings.height,
-                            nullptr, nullptr, instance_, this);
+    hwnd_ = CreateWindowExW(
+        WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle, WS_OVERLAPPEDWINDOW,
+        CW_USEDEFAULT, CW_USEDEFAULT, config_.windowSettings.width,
+        config_.windowSettings.height, nullptr, nullptr, instance_, this);
 
     if (!hwnd_)
         return false;
 
     // Show or hide window based on config_.settings.startHidden
-    ShowWindow(hwnd_, config_.settings.startHidden ? SW_HIDE : SW_SHOW);
+    ShowWindow(hwnd_, config_.generalSettings.startHidden ? SW_HIDE : SW_SHOW);
 
     return true;
 }
@@ -84,8 +84,8 @@ void MainWindow::ReloadConfig() {
         return;
     }
 
-    SetWindowPos(hwnd_, nullptr, 0, 0, config_.settings.width,
-                 config_.settings.height,
+    SetWindowPos(hwnd_, nullptr, 0, 0, config_.windowSettings.width,
+                 config_.windowSettings.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
     clipListView_.SetItems(config_.items);
 }
@@ -215,9 +215,9 @@ void MainWindow::ActivateSelectedItem() {
         return;
     }
 
-    if (config_.settings.autoClose) {
+    if (config_.generalSettings.autoClose) {
         HideWindow();
-        if (config_.settings.autoPaste) {
+        if (config_.generalSettings.autoPaste) {
             PasteToWindow(lastFocus_);
         }
     }

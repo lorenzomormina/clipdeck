@@ -1,3 +1,4 @@
 .vs/
-out/
+build/
 enc_temp_folder/
+out/

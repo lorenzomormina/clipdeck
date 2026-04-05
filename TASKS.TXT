@@ -4,3 +4,6 @@
 #4 implementare la setting della shortcut
 #5 implementare la search bar
 #6 implementare finestra config
+
+---
+
