@@ -109,29 +109,31 @@ bool ReadIniBool(const std::filesystem::path &configPath,
 
 std::vector<ClipItem> LoadItems(const std::filesystem::path &configPath) {
     std::vector<ClipItem> items;
-    std::vector<wchar_t> itemsBuffer(kIniBufferSize, L'\0');
+    std::vector<wchar_t> sectionNames(kIniBufferSize, L'\0');
+    // Get all section names
+    GetPrivateProfileSectionNamesW(sectionNames.data(),
+                                   static_cast<DWORD>(sectionNames.size()),
+                                   configPath.c_str());
 
-    GetPrivateProfileSectionW(kItemsSectionName, itemsBuffer.data(),
-                              static_cast<DWORD>(itemsBuffer.size()),
-                              configPath.c_str());
+    for (const wchar_t *section = sectionNames.data(); *section != L'\0';
+         section += wcslen(section) + 1) {
+        std::wstring sectionName(section);
+        const std::wstring prefix = L"Item:";
+        if (sectionName.compare(0, prefix.size(), prefix) == 0) {
+            std::wstring key = sectionName.substr(prefix.size());
+            std::wstring value =
+                ReadIniString(configPath, section, L"Value", L"");
+            bool hidden = ReadIniBool(configPath, section, L"Hidden", false);
 
-    for (const wchar_t *current = itemsBuffer.data(); *current != L'\0';
-         current += wcslen(current) + 1) {
-        const std::wstring entry(current);
-        const size_t separator = entry.find(L'=');
-        if (separator == std::wstring::npos) {
-            continue;
-        }
-
-        ClipItem item;
-        item.key = TrimCopy(entry.substr(0, separator));
-        item.value = DecodeEscapedValue(entry.substr(separator + 1));
-
-        if (!item.key.empty()) {
-            items.push_back(std::move(item));
+            if (!key.empty() && !value.empty()) {
+                ClipItem item;
+                item.key = TrimCopy(key);
+                item.value = DecodeEscapedValue(value);
+                item.hidden = hidden;
+                items.push_back(std::move(item));
+            }
         }
     }
-
     return items;
 }
 
@@ -146,6 +148,9 @@ AppConfig LoadAppConfig() {
     config.settings.hotkeyText =
         ReadIniString(config.configPath, kSettingsSectionName, L"Hotkey",
                       config.settings.hotkeyText.c_str());
+    config.settings.startHidden =
+        ReadIniBool(config.configPath, kSettingsSectionName, L"StartHidden",
+                    config.settings.startHidden);
     config.settings.autoClose =
         ReadIniBool(config.configPath, kSettingsSectionName, L"AutoClose",
                     config.settings.autoClose);

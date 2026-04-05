@@ -21,6 +21,8 @@ class MainWindow {
     static constexpr UINT kTrayCallbackMessage = WM_APP + 1;
     static constexpr int kTrayOpenCommandId = 1001;
     static constexpr int kTrayExitCommandId = 1002;
+    static constexpr int kTrayConfigCommandId = 1003;
+    static constexpr int kTrayReloadCommandId = 1004;
     static constexpr int kHotkeyId = 0xBEEF;
 
     bool CreateMainWindow();

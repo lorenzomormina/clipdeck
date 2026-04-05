@@ -243,9 +243,9 @@ void MainWindow::ActivateSelectedItem() {
 
     if (config_.settings.autoClose) {
         HideWindow();
-        if (config_.settings.autoPaste) {
-            PasteToWindow(lastFocus_);
-        }
+    }
+    if (config_.settings.autoPaste) {
+        PasteToWindow(lastFocus_);
     }
 }
 
