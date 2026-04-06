@@ -1,10 +1,7 @@
 --- TASKS
 
 #  1 premere ESC non chiude la finestra se il focus è sulla ListBox o textbox
-#  3 ancorare la ListBox alla finestra
 #  4 implementare la setting della shortcut
-#  5 implementare la search bar
-#  6 implementare finestra config
 #  8 implementare finestra per l'edit della config
 #  9 aggiungere bottone nella finestra per aprire l'edit della config
 # 10 aggiungere label che segnala la copia avvenuta
@@ -15,6 +12,8 @@
 
 --- DONE
 #  7 rendere la finestra non resizeable
+#  5 implementare la search bar
+#  3 ancorare la ListBox alla finestra
 
 
 
@@ -24,3 +23,4 @@
 
 --- DELETED
 #  2 rimuovere il bottone X della finestra
+#  6 implementare finestra config
