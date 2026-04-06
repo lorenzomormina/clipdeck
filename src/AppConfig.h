@@ -30,6 +30,7 @@ struct WindowSettings {
     int width = 400;
     int height = 300;
     int margin = 4;
+    int textBoxMargin = 6;
 };
 
 struct AppConfig {

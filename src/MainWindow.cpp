@@ -136,7 +136,7 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 }
 
 LRESULT MainWindow::OnCreate() {
-    if (!clipListView_.Create(hwnd_, instance_)) {
+    if (!clipListView_.Create(hwnd_, instance_, config_.windowSettings)) {
         return -1;
     }
 

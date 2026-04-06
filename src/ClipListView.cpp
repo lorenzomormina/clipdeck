@@ -6,26 +6,20 @@
 
 namespace clipass {
 
-namespace {
-
-constexpr int kListBoxX = 10;
-constexpr int kListBoxY = 10;
-constexpr int kListBoxWidth = 360;
-constexpr int kListBoxHeight = 200;
-constexpr int kFilterTextBoxHeight = 24;
-constexpr int kFilterTextBoxY = kListBoxY + kListBoxHeight + 8;
-
-} // namespace
-
 ClipListView::~ClipListView() { Destroy(); }
 
-bool ClipListView::Create(HWND parent, HINSTANCE instance) {
+bool ClipListView::Create(HWND parent, HINSTANCE instance,
+                          WindowSettings windowSettings) {
     parent_ = parent;
+    windowSettings_ = windowSettings;
+
+    int margin = windowSettings.margin;
 
     listBox_ = CreateWindowExW(
         0, L"LISTBOX", nullptr,
-        WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_VSCROLL | WS_BORDER, kListBoxX,
-        kListBoxY, kListBoxWidth, kListBoxHeight, parent_,
+        WS_CHILD | WS_VISIBLE | LBS_NOTIFY | WS_VSCROLL | WS_BORDER |
+            LBS_NOINTEGRALHEIGHT,
+        0, 0, 0, 0, parent_,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(kListBoxControlId)),
         instance, nullptr);
     if (!listBox_) {
@@ -35,8 +29,7 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance) {
 
     filterTextBox_ = CreateWindowExW(
         0, L"EDIT", nullptr, WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL,
-        kListBoxX, kFilterTextBoxY, kListBoxWidth, kFilterTextBoxHeight,
-        parent_,
+        0, 0, 0, 0, parent_,
         reinterpret_cast<HMENU>(static_cast<INT_PTR>(kFilterTextBoxControlId)),
         instance, nullptr);
     if (!filterTextBox_) {
@@ -50,9 +43,43 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance) {
                      TRUE);
         SendMessageW(filterTextBox_, WM_SETFONT,
                      reinterpret_cast<WPARAM>(uiFont_), TRUE);
+
+        HFONT hFont = uiFont_;
+        HDC hdc = GetDC(parent_);
+        HFONT oldFont = (HFONT)SelectObject(hdc, hFont);
+
+        TEXTMETRIC tm;
+        GetTextMetrics(hdc, &tm);
+        int textHeight = tm.tmHeight;
+
+        SelectObject(hdc, oldFont);
+        ReleaseDC(parent_, hdc);
+        fontHeight = textHeight;
     }
 
-    SetWindowLongPtrW(listBox_, GWLP_USERDATA, reinterpret_cast<LONG_PTR>(this));
+    RECT clientRect;
+    GetClientRect(parent_, &clientRect);
+    int clientWidth = clientRect.right - clientRect.left;
+    int clientHeight = clientRect.bottom - clientRect.top;
+
+    int textBoxWidth = clientWidth - 2 * margin;
+    int textBoxHeight = fontHeight + windowSettings.textBoxMargin;
+    int textBoxX = margin;
+    int textBoxY = clientHeight - margin - textBoxHeight;
+
+    int listBoxX = margin;
+    int listBoxY = margin;
+    int listBoxWidth = clientWidth - 2 * margin;
+    int listBoxHeight = clientHeight - 3 * margin - textBoxHeight;
+
+    MoveWindow(filterTextBox_, textBoxX, textBoxY, textBoxWidth, textBoxHeight,
+               FALSE);
+
+    MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight,
+               FALSE);
+
+    SetWindowLongPtrW(listBox_, GWLP_USERDATA,
+                      reinterpret_cast<LONG_PTR>(this));
     originalListBoxProc_ = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
         listBox_, GWLP_WNDPROC,
         reinterpret_cast<LONG_PTR>(&ClipListView::ListBoxProcThunk)));
@@ -130,8 +157,8 @@ std::optional<size_t> ClipListView::GetSelectedItemIndex() const {
 
 LRESULT CALLBACK ClipListView::ListBoxProcThunk(HWND hwnd, UINT message,
                                                 WPARAM wParam, LPARAM lParam) {
-    auto *self =
-        reinterpret_cast<ClipListView *>(GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    auto *self = reinterpret_cast<ClipListView *>(
+        GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     if (!self || !self->originalListBoxProc_) {
         return DefWindowProcW(hwnd, message, wParam, lParam);
     }

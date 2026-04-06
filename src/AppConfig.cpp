@@ -174,6 +174,9 @@ AppConfig LoadAppConfig() {
     config.windowSettings.margin =
         ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Margin",
                    config.windowSettings.margin);
+    config.windowSettings.textBoxMargin =
+        ReadIniInt(config.configPath, kWindowSettingsSectionName,
+                   L"TextBoxMargin", config.windowSettings.textBoxMargin);
 
     return config;
 }

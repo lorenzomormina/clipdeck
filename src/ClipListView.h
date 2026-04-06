@@ -15,7 +15,7 @@ class ClipListView {
 
     ~ClipListView();
 
-    bool Create(HWND parent, HINSTANCE instance);
+    bool Create(HWND parent, HINSTANCE instance, WindowSettings windowSettings);
     void Destroy();
 
     void SetItems(const std::vector<ClipItem> &items);
@@ -44,9 +44,10 @@ class ClipListView {
     HFONT uiFont_ = nullptr;
     WNDPROC originalListBoxProc_ = nullptr;
 
-    // MainWindow owns the config. The view only observes the current item list.
     const std::vector<ClipItem> *items_ = nullptr;
     std::vector<size_t> visibleItemIndices_;
+    WindowSettings windowSettings_;
+    int fontHeight;
 };
 
 } // namespace clipass
