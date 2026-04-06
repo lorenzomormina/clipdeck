@@ -1,7 +1,9 @@
 #define UNICODE
+#define NOMINMAX
 
 #include "ClipListView.h"
 
+#include <algorithm>
 #include <string>
 
 namespace clipass {
@@ -9,11 +11,10 @@ namespace clipass {
 ClipListView::~ClipListView() { Destroy(); }
 
 bool ClipListView::Create(HWND parent, HINSTANCE instance,
-                          WindowSettings windowSettings) {
+                          WindowSettings settings) {
     parent_ = parent;
-    windowSettings_ = windowSettings;
-
-    int margin = windowSettings.margin;
+    windowSettings_ = settings;
+    uiTextHeight_ = 0;
 
     listBox_ = CreateWindowExW(
         0, L"LISTBOX", nullptr,
@@ -50,33 +51,14 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
 
         TEXTMETRIC tm;
         GetTextMetrics(hdc, &tm);
-        int textHeight = tm.tmHeight;
+        const int measuredTextHeight = tm.tmHeight;
 
         SelectObject(hdc, oldFont);
         ReleaseDC(parent_, hdc);
-        fontHeight = textHeight;
+        uiTextHeight_ = measuredTextHeight;
     }
 
-    RECT clientRect;
-    GetClientRect(parent_, &clientRect);
-    int clientWidth = clientRect.right - clientRect.left;
-    int clientHeight = clientRect.bottom - clientRect.top;
-
-    int textBoxWidth = clientWidth - 2 * margin;
-    int textBoxHeight = fontHeight + windowSettings.textBoxMargin;
-    int textBoxX = margin;
-    int textBoxY = clientHeight - margin - textBoxHeight;
-
-    int listBoxX = margin;
-    int listBoxY = margin;
-    int listBoxWidth = clientWidth - 2 * margin;
-    int listBoxHeight = clientHeight - 3 * margin - textBoxHeight;
-
-    MoveWindow(filterTextBox_, textBoxX, textBoxY, textBoxWidth, textBoxHeight,
-               FALSE);
-
-    MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight,
-               FALSE);
+    LayoutToParentClientArea();
 
     SetWindowLongPtrW(listBox_, GWLP_USERDATA,
                       reinterpret_cast<LONG_PTR>(this));
@@ -85,6 +67,36 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
         reinterpret_cast<LONG_PTR>(&ClipListView::ListBoxProcThunk)));
 
     return true;
+}
+
+void ClipListView::LayoutToParentClientArea() {
+    if (!parent_ || !listBox_ || !filterTextBox_) {
+        return;
+    }
+
+    RECT clientRect;
+    GetClientRect(parent_, &clientRect);
+
+    const int margin = windowSettings_.margin;
+    const int clientWidth = clientRect.right - clientRect.left;
+    const int clientHeight = clientRect.bottom - clientRect.top;
+
+    const int textBoxWidth = std::max(0, clientWidth - 2 * margin);
+    const int textBoxHeight =
+        std::max(0, uiTextHeight_ + windowSettings_.textBoxMargin);
+    const int textBoxX = margin;
+    const int textBoxY = std::max(0, clientHeight - margin - textBoxHeight);
+
+    const int listBoxX = margin;
+    const int listBoxY = margin;
+    const int listBoxWidth = std::max(0, clientWidth - 2 * margin);
+    const int listBoxHeight =
+        std::max(0, clientHeight - 3 * margin - textBoxHeight);
+
+    MoveWindow(filterTextBox_, textBoxX, textBoxY, textBoxWidth, textBoxHeight,
+               FALSE);
+    MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight,
+               FALSE);
 }
 
 void ClipListView::Destroy() {
@@ -97,6 +109,7 @@ void ClipListView::Destroy() {
     items_ = nullptr;
     listBox_ = nullptr;
     filterTextBox_ = nullptr;
+    uiTextHeight_ = 0;
     parent_ = nullptr;
 }
 

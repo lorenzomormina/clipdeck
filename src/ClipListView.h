@@ -15,7 +15,7 @@ class ClipListView {
 
     ~ClipListView();
 
-    bool Create(HWND parent, HINSTANCE instance, WindowSettings windowSettings);
+    bool Create(HWND parent, HINSTANCE instance, WindowSettings settings);
     void Destroy();
 
     void SetItems(const std::vector<ClipItem> &items);
@@ -34,6 +34,7 @@ class ClipListView {
 
     HFONT CreateSystemUiFont() const;
     void ReleaseControlResources();
+    void LayoutToParentClientArea();
     void ApplyCurrentFilter();
     void StartFilterDebounce(HWND parent) const;
     std::wstring ReadFilterText() const;
@@ -47,7 +48,7 @@ class ClipListView {
     const std::vector<ClipItem> *items_ = nullptr;
     std::vector<size_t> visibleItemIndices_;
     WindowSettings windowSettings_;
-    int fontHeight;
+    int uiTextHeight_ = 0;
 };
 
 } // namespace clipass

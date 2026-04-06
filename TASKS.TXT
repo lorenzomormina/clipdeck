@@ -9,6 +9,7 @@
 # 12 implementare navigazione tra textbox e listbox
 # 13 mettere titolo nella title bar
 # 14 cambiare icona
+# 15 implementare il tema scuro
 
 --- DONE
 #  7 rendere la finestra non resizeable
