@@ -9,7 +9,13 @@ namespace clipass {
 class TrayIcon {
   public:
     enum class CallbackAction { None, OpenWindow, ShowMenu };
-    enum class MenuAction { None, OpenWindow, ReloadConfig, ShowConfig, ExitApp };
+    enum class MenuAction {
+        None,
+        OpenWindow,
+        ReloadConfig,
+        ShowConfig,
+        ExitApp
+    };
 
     ~TrayIcon();
 

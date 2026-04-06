@@ -1,6 +1,3 @@
-#define UNICODE
-#define NOMINMAX
-
 #include "ClipListView.h"
 
 #include <algorithm>

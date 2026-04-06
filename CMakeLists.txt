@@ -17,4 +17,12 @@ add_executable(
     src/TrayIcon.cpp
 )
 
+target_compile_definitions(
+    clipass
+    PRIVATE
+        UNICODE
+        _UNICODE
+        NOMINMAX
+)
+
 file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR})

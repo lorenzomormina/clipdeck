@@ -1,5 +1,3 @@
-#define UNICODE
-
 #include "AppConfig.h"
 #include "MainWindow.h"
 

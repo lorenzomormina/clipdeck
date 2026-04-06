@@ -1,12 +1,11 @@
-#define UNICODE
-
 #include "GlobalHotkey.h"
 
 namespace clipass {
 
 GlobalHotkey::~GlobalHotkey() { Unregister(); }
 
-bool GlobalHotkey::Register(HWND owner, int id, UINT modifiers, UINT virtualKey) {
+bool GlobalHotkey::Register(HWND owner, int id, UINT modifiers,
+                            UINT virtualKey) {
     Unregister();
 
     if (!RegisterHotKey(owner, id, modifiers, virtualKey)) {

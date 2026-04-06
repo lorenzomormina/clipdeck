@@ -1,5 +1,3 @@
-#define UNICODE
-
 #include "TrayIcon.h"
 
 #include <shellapi.h>
@@ -15,9 +13,9 @@ bool TrayIcon::Add(HWND owner, UINT iconId, UINT callbackMessage,
 
     owner_ = owner;
     iconId_ = iconId;
-    icon_ = static_cast<HICON>(
-        LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, 0, 0,
-                   LR_LOADFROMFILE | LR_DEFAULTSIZE));
+    icon_ =
+        static_cast<HICON>(LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, 0,
+                                      0, LR_LOADFROMFILE | LR_DEFAULTSIZE));
     if (!icon_) {
         return false;
     }
@@ -93,9 +91,9 @@ TrayIcon::MenuAction TrayIcon::ShowContextMenu(HWND owner) const {
     GetCursorPos(&cursor);
 
     SetForegroundWindow(owner);
-    const UINT command = TrackPopupMenu(
-        menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY, cursor.x,
-        cursor.y, 0, owner, nullptr);
+    const UINT command =
+        TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_RETURNCMD | TPM_NONOTIFY,
+                       cursor.x, cursor.y, 0, owner, nullptr);
     PostMessageW(owner, WM_NULL, 0, 0);
     DestroyMenu(menu);
 

@@ -1,5 +1,3 @@
-#define UNICODE
-
 #include "ClipboardUtils.h"
 
 #include <cstring>

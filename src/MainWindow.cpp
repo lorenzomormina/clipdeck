@@ -1,5 +1,3 @@
-#define UNICODE
-
 #include "MainWindow.h"
 
 #include <utility>
