@@ -1,0 +1,59 @@
+; Configurazione Clipass
+; Usa \n per inserire ritorni a capo nei valori.
+
+[General]
+Hotkey="Ctrl+Shift+Space" ; da implementare
+StartHidden=false
+AutoClose=true
+AutoPaste=false ; può essere true solo se AutoClose è true
+
+[Window]
+Width=400
+Height=300
+Margin=4
+TextBoxMargin=6
+
+[[Item]]
+Key="email"
+Value="nome.cognome@example.com"
+
+[[Item]]
+Key="telefono"
+Value="+39 333 1234567"
+Hidden=false
+
+[[Item]]
+Key="firma"
+Value="Cordiali saluti,\nMario Rossi"
+Hidden=false
+EnableValueSearch=true # da implementare
+
+[[Item]]
+Key="secret"
+Value="mysecret"
+Hidden=true
+
+[[Item]]
+Key="contatto alice"
+Value="alice@example.com"
+Hidden=false
+
+[[Item]]
+Key="contatto beatrice"
+Value="beatrice@example.com"
+Hidden=false
+
+[[Item]]
+Key="contatto; carmelo" ; commento
+Value="carmelo@example.com"
+Hidden=false
+
+[[Item]]
+Key="quoted string"
+Value="\"quoted;string\"" ; commento
+Hidden=false
+
+[[Item]]
+Key="number"
+Value="42"
+Hidden=false

@@ -2,6 +2,7 @@
 
 #include <algorithm>
 #include <cwctype>
+#include <fstream>
 #include <vector>
 
 #include <windows.h>
@@ -10,12 +11,15 @@ namespace clipass {
 
 namespace {
 
-constexpr wchar_t kConfigFileName[] = L"clipass.ini";
+constexpr wchar_t kConfigFileName[] = L"config.txt";
 constexpr wchar_t kIconFileName[] = L"clipass.ico";
-constexpr wchar_t kItemsSectionName[] = L"Items";
-constexpr wchar_t kGeneralSettingsSectionName[] = L"General";
-constexpr wchar_t kWindowSettingsSectionName[] = L"Window";
-constexpr DWORD kIniBufferSize = 32768;
+
+enum class ParseSection {
+    None,
+    General,
+    Window,
+    Item,
+};
 
 std::filesystem::path GetExecutableDirectory() {
     wchar_t path[MAX_PATH] = {};
@@ -57,11 +61,8 @@ std::wstring DecodeEscapedValue(const std::wstring &rawValue) {
         case L'n':
             decoded.push_back(L'\n');
             break;
-        case L'r':
-            decoded.push_back(L'\r');
-            break;
-        case L't':
-            decoded.push_back(L'\t');
+        case L'"':
+            decoded.push_back(L'"');
             break;
         case L'\\':
             decoded.push_back(L'\\');
@@ -75,71 +76,262 @@ std::wstring DecodeEscapedValue(const std::wstring &rawValue) {
     return decoded;
 }
 
-std::wstring ReadIniString(const std::filesystem::path &configPath,
-                           const wchar_t *section, const wchar_t *key,
-                           const wchar_t *defaultValue) {
-    std::vector<wchar_t> buffer(256, L'\0');
-    GetPrivateProfileStringW(section, key, defaultValue, buffer.data(),
-                             static_cast<DWORD>(buffer.size()),
-                             configPath.c_str());
-    return std::wstring(buffer.data());
+std::wstring ToLowerCopy(const std::wstring &value) {
+    std::wstring lowered = value;
+    std::transform(lowered.begin(), lowered.end(), lowered.begin(),
+                   [](wchar_t character) {
+                       return static_cast<wchar_t>(std::towlower(character));
+                   });
+    return lowered;
 }
 
-bool ReadIniBool(const std::filesystem::path &configPath,
-                 const wchar_t *section, const wchar_t *key,
-                 bool defaultValue) {
-    const std::wstring value = ReadIniString(configPath, section, key,
-                                             defaultValue ? L"true" : L"false");
+std::wstring StripInlineComment(const std::wstring &line) {
+    bool inQuotes = false;
+    bool escaped = false;
 
-    if (_wcsicmp(value.c_str(), L"true") == 0 ||
-        wcscmp(value.c_str(), L"1") == 0 ||
-        _wcsicmp(value.c_str(), L"yes") == 0) {
-        return true;
+    for (size_t index = 0; index < line.size(); ++index) {
+        const wchar_t current = line[index];
+
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
+
+        if (current == L'\\' && inQuotes) {
+            escaped = true;
+            continue;
+        }
+
+        if (current == L'"') {
+            inQuotes = !inQuotes;
+            continue;
+        }
+
+        if (!inQuotes && (current == L'#' || current == L';')) {
+            return line.substr(0, index);
+        }
     }
 
-    if (_wcsicmp(value.c_str(), L"false") == 0 ||
-        wcscmp(value.c_str(), L"0") == 0 ||
-        _wcsicmp(value.c_str(), L"no") == 0) {
+    return line;
+}
+
+bool ParseKeyValue(const std::wstring &line, std::wstring *key,
+                   std::wstring *value) {
+    const size_t separator = line.find(L'=');
+    if (separator == std::wstring::npos) {
         return false;
     }
 
-    return defaultValue;
+    *key = TrimCopy(line.substr(0, separator));
+    *value = TrimCopy(line.substr(separator + 1));
+    return !key->empty() && !value->empty();
 }
 
-int ReadIniInt(const std::filesystem::path &configPath, const wchar_t *section,
-               const wchar_t *key, int defaultValue) {
-    return GetPrivateProfileIntW(section, key, defaultValue,
-                                 configPath.c_str());
-}
+bool ParseQuotedString(const std::wstring &valueToken, std::wstring *parsed) {
+    if (valueToken.size() < 2 || valueToken.front() != L'"' ||
+        valueToken.back() != L'"') {
+        return false;
+    }
 
-std::vector<ClipItem> LoadItems(const std::filesystem::path &configPath) {
-    std::vector<ClipItem> items;
-    std::vector<wchar_t> sectionNames(kIniBufferSize, L'\0');
-    // Get all section names
-    GetPrivateProfileSectionNamesW(sectionNames.data(),
-                                   static_cast<DWORD>(sectionNames.size()),
-                                   configPath.c_str());
+    const std::wstring rawValue = valueToken.substr(1, valueToken.size() - 2);
 
-    for (const wchar_t *section = sectionNames.data(); *section != L'\0';
-         section += wcslen(section) + 1) {
-        std::wstring sectionName(section);
-        const std::wstring prefix = L"Item:";
-        if (sectionName.compare(0, prefix.size(), prefix) == 0) {
-            std::wstring key = sectionName.substr(prefix.size());
-            std::wstring value =
-                ReadIniString(configPath, section, L"Value", L"");
-            bool hidden = ReadIniBool(configPath, section, L"Hidden", false);
+    // Ensure quote characters are escaped inside string content.
+    bool escaped = false;
+    for (wchar_t character : rawValue) {
+        if (escaped) {
+            escaped = false;
+            continue;
+        }
 
-            if (!key.empty() && !value.empty()) {
-                ClipItem item;
-                item.key = TrimCopy(key);
-                item.value = DecodeEscapedValue(value);
-                item.hidden = hidden;
-                items.push_back(std::move(item));
-            }
+        if (character == L'\\') {
+            escaped = true;
+            continue;
+        }
+
+        if (character == L'"') {
+            return false;
         }
     }
-    return items;
+
+    *parsed = DecodeEscapedValue(rawValue);
+    return true;
+}
+
+bool ParseBoolValue(const std::wstring &valueToken, bool *parsed) {
+    const std::wstring lowered = ToLowerCopy(valueToken);
+    if (lowered == L"true") {
+        *parsed = true;
+        return true;
+    }
+
+    if (lowered == L"false") {
+        *parsed = false;
+        return true;
+    }
+
+    return false;
+}
+
+bool ParseIntValue(const std::wstring &valueToken, int *parsed) {
+    if (valueToken.empty()) {
+        return false;
+    }
+
+    size_t consumed = 0;
+    try {
+        const int value = std::stoi(valueToken, &consumed, 10);
+        if (consumed != valueToken.size()) {
+            return false;
+        }
+        *parsed = value;
+        return true;
+    } catch (...) {
+        return false;
+    }
+}
+
+void ApplyGeneralSetting(AppConfig *config, const std::wstring &key,
+                         const std::wstring &valueToken) {
+    if (key == L"Hotkey") {
+        std::wstring parsed;
+        if (ParseQuotedString(valueToken, &parsed)) {
+            config->generalSettings.hotkeyText = parsed;
+        }
+        return;
+    }
+
+    bool parsed = false;
+    if (key == L"StartHidden") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.startHidden = parsed;
+        }
+    } else if (key == L"AutoClose") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.autoClose = parsed;
+        }
+    } else if (key == L"AutoPaste") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.autoPaste = parsed;
+        }
+    }
+}
+
+void ApplyWindowSetting(AppConfig *config, const std::wstring &key,
+                        const std::wstring &valueToken) {
+    int parsed = 0;
+    if (key == L"Width") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->windowSettings.width = parsed;
+        }
+    } else if (key == L"Height") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->windowSettings.height = parsed;
+        }
+    } else if (key == L"Margin") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->windowSettings.margin = parsed;
+        }
+    } else if (key == L"TextBoxMargin") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->windowSettings.textBoxMargin = parsed;
+        }
+    }
+}
+
+void ApplyItemSetting(ClipItem *item, const std::wstring &key,
+                      const std::wstring &valueToken) {
+    if (key == L"Key") {
+        std::wstring parsed;
+        if (ParseQuotedString(valueToken, &parsed)) {
+            item->key = parsed;
+        }
+        return;
+    }
+
+    if (key == L"Value") {
+        std::wstring parsed;
+        if (ParseQuotedString(valueToken, &parsed)) {
+            item->value = parsed;
+        }
+        return;
+    }
+
+    bool parsed = false;
+    if (key == L"Hidden") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            item->hidden = parsed;
+        }
+    } else if (key == L"EnableValueSearch") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            item->enableSearchValue = parsed;
+        }
+    }
+}
+
+void ParseConfigFile(const std::filesystem::path &configPath,
+                     AppConfig *config) {
+    std::wifstream configFile(configPath);
+    if (!configFile.is_open()) {
+        return;
+    }
+
+    ParseSection currentSection = ParseSection::None;
+    ClipItem *currentItem = nullptr;
+
+    std::wstring rawLine;
+    bool isFirstLine = true;
+    while (std::getline(configFile, rawLine)) {
+        if (isFirstLine && !rawLine.empty() && rawLine.front() == 0xFEFF) {
+            rawLine.erase(rawLine.begin());
+        }
+        isFirstLine = false;
+
+        const std::wstring withoutComments = StripInlineComment(rawLine);
+        const std::wstring line = TrimCopy(withoutComments);
+        if (line.empty()) {
+            continue;
+        }
+
+        if (line.front() == L'[' && line.back() == L']') {
+            if (line == L"[General]") {
+                currentSection = ParseSection::General;
+                currentItem = nullptr;
+            } else if (line == L"[Window]") {
+                currentSection = ParseSection::Window;
+                currentItem = nullptr;
+            } else if (line == L"[[Item]]") {
+                currentSection = ParseSection::Item;
+                config->items.emplace_back();
+                currentItem = &config->items.back();
+            } else {
+                currentSection = ParseSection::None;
+                currentItem = nullptr;
+            }
+            continue;
+        }
+
+        std::wstring key;
+        std::wstring valueToken;
+        if (!ParseKeyValue(line, &key, &valueToken)) {
+            continue;
+        }
+
+        switch (currentSection) {
+        case ParseSection::General:
+            ApplyGeneralSetting(config, key, valueToken);
+            break;
+        case ParseSection::Window:
+            ApplyWindowSetting(config, key, valueToken);
+            break;
+        case ParseSection::Item:
+            if (currentItem != nullptr) {
+                ApplyItemSetting(currentItem, key, valueToken);
+            }
+            break;
+        case ParseSection::None:
+            break;
+        }
+    }
 }
 
 } // namespace
@@ -150,31 +342,7 @@ AppConfig LoadAppConfig() {
     config.configPath = config.executableDirectory / kConfigFileName;
     config.iconPath = config.executableDirectory / kIconFileName;
 
-    // config.generalSettings.hotkeyText =
-    //     ReadIniString(config.configPath, kSettingsSectionName, L"Hotkey",
-    //                   config.generalSettings.hotkeyText.c_str());
-    config.generalSettings.startHidden =
-        ReadIniBool(config.configPath, kGeneralSettingsSectionName,
-                    L"StartHidden", config.generalSettings.startHidden);
-    config.generalSettings.autoClose =
-        ReadIniBool(config.configPath, kGeneralSettingsSectionName,
-                    L"AutoClose", config.generalSettings.autoClose);
-    config.generalSettings.autoPaste =
-        ReadIniBool(config.configPath, kGeneralSettingsSectionName,
-                    L"AutoPaste", config.generalSettings.autoPaste);
-    config.items = LoadItems(config.configPath);
-    config.windowSettings.width =
-        ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Width",
-                   config.windowSettings.width);
-    config.windowSettings.height =
-        ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Height",
-                   config.windowSettings.height);
-    config.windowSettings.margin =
-        ReadIniInt(config.configPath, kWindowSettingsSectionName, L"Margin",
-                   config.windowSettings.margin);
-    config.windowSettings.textBoxMargin =
-        ReadIniInt(config.configPath, kWindowSettingsSectionName,
-                   L"TextBoxMargin", config.windowSettings.textBoxMargin);
+    ParseConfigFile(config.configPath, &config);
 
     return config;
 }

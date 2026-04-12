@@ -10,6 +10,7 @@ struct ClipItem {
     std::wstring key;
     std::wstring value;
     bool hidden = false;
+    bool enableSearchValue = false;
 
     std::wstring GetDisplayText() const {
         if (hidden) {
@@ -20,7 +21,7 @@ struct ClipItem {
 };
 
 struct GeneralSettings {
-    // std::wstring hotkeyText = L"Ctrl+Shift+Space";
+    std::wstring hotkeyText = L"Ctrl+Shift+Space";
     bool startHidden = true;
     bool autoClose = true;
     bool autoPaste = false;
