@@ -8,6 +8,7 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(
     clipass
     WIN32
+    resources/resource.rc
     src/main.cpp
     src/AppConfig.cpp
     src/ClipboardUtils.cpp

@@ -12,7 +12,7 @@ namespace clipass {
 namespace {
 
 constexpr wchar_t kConfigFileName[] = L"config.txt";
-constexpr wchar_t kIconFileName[] = L"clipass.ico";
+constexpr wchar_t kIconFileName[] = L"icon.ico";
 
 enum class ParseSection {
     None,
