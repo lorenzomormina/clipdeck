@@ -3,6 +3,7 @@
 #include <fstream>
 #include <sstream>
 #include <utility>
+#include <vector>
 
 namespace clipass {
 
@@ -69,24 +70,77 @@ std::wstring NormalizeLineEndingsForStorage(const std::wstring &text) {
 }
 
 std::wstring ReadTextFile(const std::filesystem::path &path) {
-    std::wifstream file(path);
+    std::ifstream file(path, std::ios::binary);
     if (!file.is_open()) {
         return L"";
     }
 
-    std::wstringstream buffer;
-    buffer << file.rdbuf();
-    return buffer.str();
+    std::string bytes((std::istreambuf_iterator<char>(file)),
+                      std::istreambuf_iterator<char>());
+
+    if (bytes.size() >= 3 && static_cast<unsigned char>(bytes[0]) == 0xEF &&
+        static_cast<unsigned char>(bytes[1]) == 0xBB &&
+        static_cast<unsigned char>(bytes[2]) == 0xBF) {
+        bytes.erase(0, 3);
+    }
+
+    if (bytes.empty()) {
+        return L"";
+    }
+
+    const int utf8Chars =
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(),
+                            static_cast<int>(bytes.size()), nullptr, 0);
+    if (utf8Chars > 0) {
+        std::wstring utf8Text(static_cast<size_t>(utf8Chars), L'\0');
+        MultiByteToWideChar(CP_UTF8, MB_ERR_INVALID_CHARS, bytes.data(),
+                            static_cast<int>(bytes.size()), utf8Text.data(),
+                            utf8Chars);
+        return utf8Text;
+    }
+
+    // Fallback for legacy ANSI files.
+    const int acpChars = MultiByteToWideChar(
+        CP_ACP, 0, bytes.data(), static_cast<int>(bytes.size()), nullptr, 0);
+    if (acpChars <= 0) {
+        return L"";
+    }
+
+    std::wstring acpText(static_cast<size_t>(acpChars), L'\0');
+    MultiByteToWideChar(CP_ACP, 0, bytes.data(), static_cast<int>(bytes.size()),
+                        acpText.data(), acpChars);
+    return acpText;
 }
 
 bool WriteTextFile(const std::filesystem::path &path,
                    const std::wstring &text) {
-    std::wofstream file(path);
+    const int bytesRequired = WideCharToMultiByte(CP_UTF8, 0, text.c_str(),
+                                                  static_cast<int>(text.size()),
+                                                  nullptr, 0, nullptr, nullptr);
+    if (bytesRequired < 0) {
+        return false;
+    }
+
+    std::string utf8Text(static_cast<size_t>(bytesRequired), '\0');
+    if (bytesRequired > 0) {
+        const int writtenBytes = WideCharToMultiByte(
+            CP_UTF8, 0, text.c_str(), static_cast<int>(text.size()),
+            utf8Text.data(), bytesRequired, nullptr, nullptr);
+        if (writtenBytes != bytesRequired) {
+            return false;
+        }
+    }
+
+    std::ofstream file(path, std::ios::binary | std::ios::trunc);
     if (!file.is_open()) {
         return false;
     }
 
-    file << text;
+    if (!utf8Text.empty()) {
+        file.write(utf8Text.data(),
+                   static_cast<std::streamsize>(utf8Text.size()));
+    }
+
     return file.good();
 }
 

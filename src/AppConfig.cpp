@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cwctype>
 #include <fstream>
+#include <sstream>
 #include <vector>
 
 #include <windows.h>
@@ -83,6 +84,58 @@ std::wstring ToLowerCopy(const std::wstring &value) {
                        return static_cast<wchar_t>(std::towlower(character));
                    });
     return lowered;
+}
+
+std::wstring DecodeBytesToWide(const std::string &bytes, UINT codePage,
+                               DWORD flags) {
+    if (bytes.empty()) {
+        return L"";
+    }
+
+    const int requiredChars =
+        MultiByteToWideChar(codePage, flags, bytes.data(),
+                            static_cast<int>(bytes.size()), nullptr, 0);
+    if (requiredChars <= 0) {
+        return L"";
+    }
+
+    std::wstring converted(static_cast<size_t>(requiredChars), L'\0');
+    const int writtenChars = MultiByteToWideChar(
+        codePage, flags, bytes.data(), static_cast<int>(bytes.size()),
+        converted.data(), requiredChars);
+    if (writtenChars <= 0) {
+        return L"";
+    }
+
+    return converted;
+}
+
+bool ReadTextFileWithEncodingFallback(const std::filesystem::path &path,
+                                      std::wstring *text) {
+    std::ifstream file(path, std::ios::binary);
+    if (!file.is_open()) {
+        return false;
+    }
+
+    std::string bytes((std::istreambuf_iterator<char>(file)),
+                      std::istreambuf_iterator<char>());
+
+    if (bytes.size() >= 3 && static_cast<unsigned char>(bytes[0]) == 0xEF &&
+        static_cast<unsigned char>(bytes[1]) == 0xBB &&
+        static_cast<unsigned char>(bytes[2]) == 0xBF) {
+        bytes.erase(0, 3);
+    }
+
+    std::wstring utf8Decoded =
+        DecodeBytesToWide(bytes, CP_UTF8, MB_ERR_INVALID_CHARS);
+    if (!utf8Decoded.empty() || bytes.empty()) {
+        *text = std::move(utf8Decoded);
+        return true;
+    }
+
+    // Fallback for legacy non-UTF-8 config files.
+    *text = DecodeBytesToWide(bytes, CP_ACP, 0);
+    return true;
 }
 
 std::wstring StripInlineComment(const std::wstring &line) {
@@ -270,21 +323,21 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
 
 void ParseConfigFile(const std::filesystem::path &configPath,
                      AppConfig *config) {
-    std::wifstream configFile(configPath);
-    if (!configFile.is_open()) {
+    std::wstring configText;
+    if (!ReadTextFileWithEncodingFallback(configPath, &configText)) {
         return;
     }
+
+    std::wistringstream configStream(configText);
 
     ParseSection currentSection = ParseSection::None;
     ClipItem *currentItem = nullptr;
 
     std::wstring rawLine;
-    bool isFirstLine = true;
-    while (std::getline(configFile, rawLine)) {
-        if (isFirstLine && !rawLine.empty() && rawLine.front() == 0xFEFF) {
-            rawLine.erase(rawLine.begin());
+    while (std::getline(configStream, rawLine)) {
+        if (!rawLine.empty() && rawLine.back() == L'\r') {
+            rawLine.pop_back();
         }
-        isFirstLine = false;
 
         const std::wstring withoutComments = StripInlineComment(rawLine);
         const std::wstring line = TrimCopy(withoutComments);

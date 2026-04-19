@@ -57,3 +57,8 @@ Hidden=false
 Key="number"
 Value="42"
 Hidden=false
+
+[[Item]]
+Key="lettere accentate"
+Value="è è é é î È É"
+Hidden=false
