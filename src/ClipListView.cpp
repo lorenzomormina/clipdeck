@@ -1,9 +1,15 @@
 #include "ClipListView.h"
+#include "../resources/resource.h"
 
 #include <algorithm>
+#include <commctrl.h>
 #include <string>
 
 namespace clipass {
+
+namespace {
+wchar_t kConfigurationToolTipText[] = L"Configuration";
+}
 
 ClipListView::~ClipListView() { Destroy(); }
 
@@ -35,6 +41,56 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
         return false;
     }
 
+    settingsButton_ = CreateWindowExW(
+        0, L"BUTTON", nullptr, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_ICON,
+        0, 0, 0, 0, parent_,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kSettingsButtonControlId)),
+        instance, nullptr);
+    if (!settingsButton_) {
+        Destroy();
+        return false;
+    }
+
+    INITCOMMONCONTROLSEX commonControls = {};
+    commonControls.dwSize = sizeof(commonControls);
+    commonControls.dwICC = ICC_WIN95_CLASSES;
+    if (!InitCommonControlsEx(&commonControls)) {
+        Destroy();
+        return false;
+    }
+
+    settingsToolTip_ = CreateWindowExW(
+        WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT, parent_, nullptr, instance, nullptr);
+    if (settingsToolTip_) {
+        TOOLINFOW toolInfo = {};
+#ifdef TTTOOLINFOW_V2_SIZE
+        toolInfo.cbSize = TTTOOLINFOW_V2_SIZE;
+#else
+        toolInfo.cbSize = sizeof(toolInfo);
+#endif
+        toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+        toolInfo.hwnd = parent_;
+        toolInfo.uId = reinterpret_cast<UINT_PTR>(settingsButton_);
+        toolInfo.lpszText = kConfigurationToolTipText;
+
+        if (!SendMessageW(settingsToolTip_, TTM_ADDTOOLW, 0,
+                          reinterpret_cast<LPARAM>(&toolInfo))) {
+#ifdef TTTOOLINFOW_V1_SIZE
+            toolInfo.cbSize = TTTOOLINFOW_V1_SIZE;
+            if (!SendMessageW(settingsToolTip_, TTM_ADDTOOLW, 0,
+                              reinterpret_cast<LPARAM>(&toolInfo))) {
+                DestroyWindow(settingsToolTip_);
+                settingsToolTip_ = nullptr;
+            }
+#else
+            DestroyWindow(settingsToolTip_);
+            settingsToolTip_ = nullptr;
+#endif
+        }
+    }
+
     uiFont_ = CreateSystemUiFont();
     if (uiFont_) {
         SendMessageW(listBox_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_),
@@ -55,6 +111,18 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
         uiTextHeight_ = measuredTextHeight;
     }
 
+    const int iconSize = std::max(16, GetSystemMetrics(SM_CXSMICON));
+    settingsIcon_ = static_cast<HICON>(
+        LoadImageW(instance, MAKEINTRESOURCEW(IDI_SETTINGS), IMAGE_ICON,
+                   iconSize, iconSize, LR_DEFAULTCOLOR));
+    if (!settingsIcon_) {
+        Destroy();
+        return false;
+    }
+
+    SendMessageW(settingsButton_, BM_SETIMAGE, IMAGE_ICON,
+                 reinterpret_cast<LPARAM>(settingsIcon_));
+
     LayoutToParentClientArea();
 
     SetWindowLongPtrW(listBox_, GWLP_USERDATA,
@@ -67,7 +135,7 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
 }
 
 void ClipListView::LayoutToParentClientArea() {
-    if (!parent_ || !listBox_ || !filterTextBox_) {
+    if (!parent_ || !listBox_ || !filterTextBox_ || !settingsButton_) {
         return;
     }
 
@@ -78,11 +146,15 @@ void ClipListView::LayoutToParentClientArea() {
     const int clientWidth = clientRect.right - clientRect.left;
     const int clientHeight = clientRect.bottom - clientRect.top;
 
-    const int textBoxWidth = std::max(0, clientWidth - 2 * margin);
+    const int originalTextBoxWidth = std::max(0, clientWidth - 2 * margin);
     const int textBoxHeight =
         std::max(0, uiTextHeight_ + windowSettings_.textBoxMargin);
+    const int settingsButtonWidth = textBoxHeight;
+    const int textBoxWidth =
+        std::max(0, originalTextBoxWidth - margin - settingsButtonWidth);
     const int textBoxX = margin;
     const int textBoxY = std::max(0, clientHeight - margin - textBoxHeight);
+    const int settingsButtonX = textBoxX + textBoxWidth + margin;
 
     const int listBoxX = margin;
     const int listBoxY = margin;
@@ -92,6 +164,8 @@ void ClipListView::LayoutToParentClientArea() {
 
     MoveWindow(filterTextBox_, textBoxX, textBoxY, textBoxWidth, textBoxHeight,
                FALSE);
+    MoveWindow(settingsButton_, settingsButtonX, textBoxY, settingsButtonWidth,
+               textBoxHeight, FALSE);
     MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight,
                FALSE);
 }
@@ -106,6 +180,8 @@ void ClipListView::Destroy() {
     items_ = nullptr;
     listBox_ = nullptr;
     filterTextBox_ = nullptr;
+    settingsButton_ = nullptr;
+    settingsToolTip_ = nullptr;
     uiTextHeight_ = 0;
     parent_ = nullptr;
 }
@@ -135,6 +211,12 @@ ClipListView::Event ClipListView::HandleCommand(HWND parent, WPARAM wParam,
         reinterpret_cast<HWND>(lParam) == listBox_ &&
         notifyCode == LBN_DBLCLK) {
         return Event::ActivateSelectedItem;
+    }
+
+    if (controlId == kSettingsButtonControlId &&
+        reinterpret_cast<HWND>(lParam) == settingsButton_ &&
+        notifyCode == BN_CLICKED) {
+        return Event::OpenSettings;
     }
 
     return Event::None;
@@ -201,6 +283,16 @@ void ClipListView::ReleaseControlResources() {
                           reinterpret_cast<LONG_PTR>(originalListBoxProc_));
     }
     originalListBoxProc_ = nullptr;
+
+    if (settingsToolTip_ && IsWindow(settingsToolTip_)) {
+        DestroyWindow(settingsToolTip_);
+        settingsToolTip_ = nullptr;
+    }
+
+    if (settingsIcon_) {
+        DestroyIcon(settingsIcon_);
+        settingsIcon_ = nullptr;
+    }
 
     if (uiFont_) {
         DeleteObject(uiFont_);

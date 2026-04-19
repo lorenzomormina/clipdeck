@@ -26,4 +26,20 @@ target_compile_definitions(
         NOMINMAX
 )
 
-file(COPY ${CMAKE_CURRENT_SOURCE_DIR}/resources/ DESTINATION ${CMAKE_CURRENT_BINARY_DIR})
+target_link_libraries(
+    clipass
+    PRIVATE
+        comctl32
+)
+
+add_custom_command(TARGET clipass POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+            ${CMAKE_CURRENT_SOURCE_DIR}/resources/icons
+            $<TARGET_FILE_DIR:clipass>/icons
+)
+
+add_custom_command(TARGET clipass POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+            ${CMAKE_CURRENT_SOURCE_DIR}/resources/config.txt
+            $<TARGET_FILE_DIR:clipass>/config.txt
+)

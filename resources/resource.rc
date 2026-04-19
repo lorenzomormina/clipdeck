@@ -1,1 +1,10 @@
-IDI_ICON1 ICON "icon.ico"
+#include "resource.h"
+
+IDI_ICON1 ICON "icons/icon.ico"
+IDI_BACK ICON "icons/back.ico"
+IDI_CANCEL ICON "icons/cancel.ico"
+IDI_REFRESH ICON "icons/refresh.ico"
+IDI_RESET ICON "icons/reset.ico"
+IDI_SAVE ICON "icons/save.ico"
+IDI_SETTINGS ICON "icons/settings.ico"
+IDI_SUCCESS ICON "icons/success.ico"

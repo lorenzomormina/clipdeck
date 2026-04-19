@@ -340,7 +340,7 @@ AppConfig LoadAppConfig() {
     AppConfig config;
     config.executableDirectory = GetExecutableDirectory();
     config.configPath = config.executableDirectory / kConfigFileName;
-    config.iconPath = config.executableDirectory / kIconFileName;
+    config.iconPath = config.executableDirectory / "icons" / kIconFileName;
 
     ParseConfigFile(config.configPath, &config);
 

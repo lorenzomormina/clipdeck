@@ -1,0 +1,13 @@
+#ifndef CLIPASS_RESOURCE_H_
+#define CLIPASS_RESOURCE_H_
+
+#define IDI_ICON1 101
+#define IDI_BACK 102
+#define IDI_CANCEL 103
+#define IDI_REFRESH 104
+#define IDI_RESET 105
+#define IDI_SAVE 106
+#define IDI_SETTINGS 107
+#define IDI_SUCCESS 108
+
+#endif
