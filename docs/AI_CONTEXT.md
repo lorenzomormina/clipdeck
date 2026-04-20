@@ -22,9 +22,9 @@ Clipass is a small WinAPI desktop utility for quickly inserting configured text 
 Today, in code, it:
 
 * loads items from `config.txt` located next to the built executable
-* runs as a single top-level window with a tray icon
-* registers a global hotkey
-* shows a searchable list of configured items
+* runs with a tray icon and a global hotkey
+* uses one top-level main window for snippet selection
+* uses one separate top-level settings window for raw config editing
 * copies the selected value to the clipboard
 * optionally auto-pastes into the previously focused window, but only in the current `AutoClose=true` flow
 
@@ -34,25 +34,22 @@ The app is meant to stay lightweight, explicit, and easy to change locally.
 
 ## 2) Observed runtime flow
 
-This section reflects the current code in `main.cpp`, `MainWindow.*`, `ClipListView.*`, `TrayIcon.*`, and `ClipboardUtils.*`.
+This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsWindow.*`, `ClipListView.*`, `TrayIcon.*`, and `ClipboardUtils.*`.
 
 1. `wWinMain` loads `AppConfig` via `LoadAppConfig()` and constructs `MainWindow`.
 2. `MainWindow::Run()` creates the main HWND, then shows or hides it based on `GeneralSettings.startHidden`.
-3. On `WM_CREATE`, the app creates all child controls up front:
-
-   * main-list controls from `ClipListView`
-   * settings `EDIT`, `Save`, and `Cancel` controls inside the same main window
+3. On `WM_CREATE`, the main window creates only the snippet-list child controls from `ClipListView`.
 4. After window creation, the app adds a tray icon and registers a global hotkey.
 5. The hotkey is currently hardcoded to `Ctrl+Shift+Grave` (`MOD_CONTROL | MOD_SHIFT` + `VK_OEM_3`).
    `General.Hotkey` is parsed from config but not used for registration.
-6. Hotkey press captures the currently focused external window, then toggles Clipass visibility.
+6. Hotkey press captures the currently focused external window, then toggles the main snippet window.
 7. Tray behavior:
 
    * left click opens the main window
    * right click shows a context menu with `Open`, `Config`, `Reload`, `Exit`
    * `Reload` reparses config and refreshes in-memory items
-   * `Config` currently shows a placeholder message box
-8. `AppView::MAIN_LIST` shows:
+   * `Config` still shows a placeholder message box
+8. The main window shows:
 
    * a `LISTBOX`
    * a filter `EDIT`
@@ -60,42 +57,34 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `ClipListV
 9. Typing in the filter box starts a 100 ms debounce timer. Filtering currently matches `ClipItem.key` only, using a case-sensitive substring check.
 10. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
 11. Activation copies the selected value to the clipboard.
-12. If `AutoClose=true`, the window hides after activation.
+12. If `AutoClose=true`, the main window hides after activation.
 13. If `AutoClose=true` and `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
-14. Clicking the settings button switches the existing main window from `MAIN_LIST` to `SETTINGS`.
-    There is no separate settings window.
-15. `AppView::SETTINGS` loads the raw config file text into a multiline `EDIT` control.
-16. Taskbar visibility is view-specific on the same top-level HWND:
+14. Clicking the settings button opens a separate top-level settings window.
+    If it does not exist yet, the app creates it first.
+    If it already exists, the app shows it and brings it to the foreground.
+15. After opening settings from the main window, the main window hides.
+16. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
+17. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
+18. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
 
-   * `MAIN_LIST` uses tool-window style (no taskbar button)
-   * `SETTINGS` enables app-window style (shows a taskbar button)
-17. `Save` writes the raw text back to disk, reloads `AppConfig`, and stays in the settings view.
-18. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` first goes through the dirty-check flow:
-
-   * if not dirty, return to `MAIN_LIST`
+   * if not dirty, hide the settings window
    * if dirty, show `Yes / No / Cancel`
-   * `Yes` saves, reloads config, then returns to `MAIN_LIST`
-   * `No` discards editor changes, then returns to `MAIN_LIST`
-   * `Cancel` keeps the settings view open
-19. After a successful settings leave:
-
-   * `Cancel` button stops at `MAIN_LIST`
-   * `Esc` or `WM_CLOSE` continue into their normal hide path
-20. Focus-loss auto-hide is view-specific:
-
-   * in `AppView::MAIN_LIST`, losing focus hides the main window
-   * in `AppView::SETTINGS`, losing focus keeps the window open and stays in settings
+   * `Yes` saves, reloads config, then hides the settings window
+   * `No` discards editor changes, then hides the settings window
+   * `Cancel` keeps the settings window open
+19. The main window auto-hides on focus loss while visible.
+20. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
 
 ---
 
-## 3) UI views
+## 3) UI windows
 
-The application currently has two implemented views:
+The application currently has two concrete top-level windows:
 
-* `AppView::MAIN_LIST`
-* `AppView::SETTINGS`
+* the main snippet window
+* the settings window
 
-### `AppView::MAIN_LIST`
+### Main snippet window
 
 **Purpose**
 
@@ -116,10 +105,12 @@ The application currently has two implemented views:
 * activation is by double click or `Enter` in the list box
 * selected item value is copied to clipboard
 * hidden items are still present in the list, but their displayed value is masked as `*****`
+* the window uses tool-window style and is hidden from the taskbar
+* losing focus hides the window
 
 ---
 
-### `AppView::SETTINGS`
+### Settings window
 
 **Purpose**
 
@@ -133,17 +124,19 @@ The application currently has two implemented views:
 
 **Observed behavior**
 
+* settings has its own top-level HWND and lifecycle
 * the editor shows the file text as stored on disk
 * `Save` writes the raw editor text to disk and reloads config
 * `Cancel` means "leave settings", not "clear text"
 * dirty state is tracked by comparing current editor text with the original loaded text
 * programmatic text loads suppress the dirty flag via `suppressEditChange`
+* `Esc` is handled through message pre-translation in the main loop so it works even when focus is inside child controls
 
 **Current limits**
 
 * layout is fixed with hardcoded coordinates
-* there is no dedicated settings module; the logic lives in `MainWindow.*`
-* there is no config validation or parse error feedback before reloading
+* size is still based on `WindowSettings.width` and `WindowSettings.height`
+* there is no config validation or parse error feedback before reload
 
 ---
 
@@ -151,7 +144,8 @@ The application currently has two implemented views:
 
 ### Implemented
 
-* single WinAPI top-level window with two views
+* one main WinAPI top-level window for snippet selection
+* one separate WinAPI top-level settings window for raw config editing
 * tray icon with `Open`, `Reload`, and `Exit`
 * global hotkey registration
 * searchable key/value list UI
@@ -159,13 +153,13 @@ The application currently has two implemented views:
 * optional auto-close after activation
 * optional auto-paste attempt back to the previously focused window
 * raw config text editor with save/discard confirmation
-* config reload after save or tray reload
+* config reload after settings save or tray reload
 
 ### Partial / limited
 
 * `General.Hotkey` is parsed and stored, but not used; registration is still hardcoded
 * `ClipItem.EnableValueSearch` is parsed and stored, but filtering does not use it
-* `Window` settings affect initial sizing and main-list layout creation, but relayout on later size changes is incomplete
+* `Window` settings affect main-window size and main-list layout creation, but relayout on later size changes is incomplete
 * settings editing is functional but very basic
 * config save path only reports file-write failure; malformed config content is not validated for the user
 * auto-paste depends on best-effort focus restoration (`SetForegroundWindow`, `SetFocus`, `SendInput`)
@@ -174,7 +168,7 @@ The application currently has two implemented views:
 
 * configurable hotkey registration from `General.Hotkey`
 * value-based search using `EnableValueSearch`
-* tray `Config` action that opens real config/settings behavior
+* tray `Config` action opening the real settings window
 * stronger config validation and user-facing parse errors
 
 ---
@@ -227,7 +221,7 @@ EnableValueSearch=true
 
 #### `[Window]`
 
-* `Width`, `Height`: used for main window creation and reload sizing
+* `Width`, `Height`: used for main-window creation, reload sizing, and settings-window sizing
 * `Margin`, `TextBoxMargin`: used by `ClipListView` layout
 
 #### `[[Item]]`
@@ -239,7 +233,7 @@ EnableValueSearch=true
 
 ### Important note about config editing
 
-The settings view edits the raw config file text, not a structured form.
+The settings window edits the raw config file text, not a structured form.
 
 That means:
 
@@ -251,12 +245,13 @@ That means:
 
 ## 6) Current product state
 
-The current application is usable for the main snippet-selection flow.
+The current application is usable for the main snippet-selection flow and for raw config editing.
 
 What is stable enough to rely on:
 
 * startup through `main.cpp`
-* `MainWindow` as the top-level orchestrator
+* `MainWindow` as the main snippet-window orchestrator
+* `SettingsWindow` as the separate config-editor window
 * `ClipListView` as the main-list control owner
 * `AppConfig` as the config parser / loader
 * tray and clipboard plumbing
@@ -281,7 +276,8 @@ What is still rough:
 
 ### Practical design rules for this repo
 
-* `MainWindow` should orchestrate window-level behavior and view switching
+* `MainWindow` should orchestrate the snippet-list window, tray actions, hotkey events, config reload, and item activation
+* `SettingsWindow` should own the separate settings HWND, settings controls, and dirty-check/save behavior
 * `ClipListView` should own main-list controls and filter behavior
 * `AppConfig` should remain the config parser / loader boundary
 * clipboard and paste mechanics should stay in `ClipboardUtils`
@@ -302,19 +298,28 @@ These reflect the current repository, not an idealized structure.
 
 ### `src/MainWindow.*`
 
-* owns the main HWND
-* handles `WndProc` dispatch
-* creates both views' controls
-* switches between `MAIN_LIST` and `SETTINGS`
-* handles dirty-check flow for settings
+* owns the main snippet-window HWND
+* handles `WndProc` dispatch for that window
+* creates main-list controls through `ClipListView`
 * coordinates tray actions, hotkey events, config reload, and item activation
+* opens the settings window when requested
+* provides message-loop pre-translation to support settings `Esc` handling
+
+### `src/SettingsWindow.*`
+
+* owns the separate settings HWND
+* creates the multiline `EDIT`, `Save`, and `Cancel` controls
+* loads raw config text from disk
+* writes raw config text back to disk
+* handles dirty-check flow and hide/close behavior
+* notifies `MainWindow` after successful save so config can be reloaded
 
 ### `src/ClipListView.*`
 
 * creates main-list child controls
 * owns filter debounce timer behavior
 * populates and filters the list box
-* exposes selection and view events back to `MainWindow`
+* exposes selection and settings-button events back to `MainWindow`
 
 ### `src/AppConfig.*`
 
@@ -323,7 +328,7 @@ These reflect the current repository, not an idealized structure.
 * decodes quoted values and escaped characters
 * returns the in-memory config model
 
-There is currently no separate save/validate API here; settings save writes raw text in `MainWindow.cpp`.
+There is still no separate save/validate API here; raw-text settings save writes directly to disk in `SettingsWindow.cpp`.
 
 ### `src/ClipboardUtils.*`
 
@@ -354,8 +359,6 @@ There is currently no separate save/validate API here; settings save writes raw 
 * AI-facing repository context
 * should be updated when implemented behavior or module boundaries materially change
 
-There is currently no `SettingsView.*` file.
-
 ---
 
 ## 9) Recommended module boundaries
@@ -364,7 +367,8 @@ Keep these boundaries unless the task explicitly improves one of them:
 
 * main-list control behavior belongs in `ClipListView.*`
 * raw config parsing belongs in `AppConfig.*`
-* settings UI behavior currently belongs in `MainWindow.*`
+* separate raw config editing behavior belongs in `SettingsWindow.*`
+* snippet-window orchestration belongs in `MainWindow.*`
 * clipboard / paste behavior belongs in `ClipboardUtils.*`
 * tray menu behavior belongs in `TrayIcon.*`
 
@@ -376,23 +380,22 @@ If you introduce a new module, it should remove a concrete overload from an exis
 
 Important current state includes:
 
-* `currentView_` in `MainWindow`
-* settings editor state:
+* captured external focus in `lastFocus_`
+* full config model in `config_`
+* visible filtered item index mapping in `ClipListView`
+* settings editor state in `SettingsWindow`:
 
   * `originalText`
   * `isDirty`
   * `suppressEditChange`
-* captured external focus in `lastFocus_`
-* full config model in `config_`
-* visible filtered item index mapping in `ClipListView`
 
 Behavior expectations future edits should preserve unless the task explicitly changes them:
 
-* hotkey toggles visibility
-* tray left click opens the window
-* main window auto-hides on focus loss in `MAIN_LIST`; `SETTINGS` stays open on focus loss
-* main window is taskbar-hidden in `MAIN_LIST` and taskbar-visible in `SETTINGS`
+* hotkey toggles the main snippet window
+* tray left click opens the main window
+* main window auto-hides on focus loss
 * settings dirty-check blocks accidental leave when user chooses `Cancel`
+* settings `Save` writes raw text first, then reloads config
 * item activation always copies first; paste is additional behavior
 
 ---
@@ -442,9 +445,9 @@ Only issues justified by the current code are listed here.
 * hidden items are still selectable; only their displayed value is masked
 * settings save writes raw text without validation; malformed config can silently reload as partial defaults
 * there is no `WM_SIZE` handling; control layout is not recomputed on user resize
-* `ReloadConfig()` resizes the main window and refreshes items, but existing child-control layout is not fully recomputed afterward
-* settings control positions are hardcoded and do not use `WindowSettings`
-* file I/O uses plain wide streams without an explicit encoding policy, so non-ASCII handling depends on platform/runtime defaults
+* `ReloadConfig()` resizes the main window and updates settings-window sizing, but existing child-control layout is not fully recomputed afterward
+* settings control positions are hardcoded and do not use `WindowSettings.margin` or `WindowSettings.textBoxMargin`
+* file I/O uses explicit UTF-8 write output with UTF-8/ACP read fallback, but there is still no user-facing encoding validation
 
 ---
 
@@ -538,8 +541,8 @@ The project is:
 
 Clipass is a small WinAPI snippet inserter with:
 
-* one main HWND
-* two views inside that HWND
+* one main snippet HWND
+* one separate settings HWND
 * tray + hotkey entry points
 * raw-text config editing
 * a narrow set of source modules
