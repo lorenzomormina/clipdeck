@@ -5,7 +5,8 @@
 namespace clipass {
 
 MainWindow::MainWindow(HINSTANCE instance, AppConfig config)
-    : instance_(instance), config_(std::move(config)), settingsWindow_(instance) {
+    : instance_(instance), config_(std::move(config)),
+      settingsWindow_(instance) {
     settingsWindow_.SetConfig(config_);
     settingsWindow_.SetConfigSavedCallback([this]() { ReloadConfig(); });
 }
@@ -44,11 +45,11 @@ bool MainWindow::CreateMainWindow() {
         return false;
     }
 
-    hwnd_ = CreateWindowExW(WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle,
-                            WS_OVERLAPPED | WS_SYSMENU, CW_USEDEFAULT,
-                            CW_USEDEFAULT, config_.windowSettings.width,
-                            config_.windowSettings.height, nullptr, nullptr,
-                            instance_, this);
+    hwnd_ = CreateWindowExW(
+        WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle,
+        WS_OVERLAPPED | WS_SYSMENU | WS_SIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT,
+        config_.windowSettings.width, config_.windowSettings.height, nullptr,
+        nullptr, instance_, this);
 
     if (!hwnd_)
         return false;
@@ -91,9 +92,15 @@ void MainWindow::ReloadConfig() {
         return;
     }
 
+    clipListView_.SetWindowSettings(config_.windowSettings);
     SetWindowPos(hwnd_, nullptr, 0, 0, config_.windowSettings.width,
                  config_.windowSettings.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+    RECT clientRect = {};
+    GetClientRect(hwnd_, &clientRect);
+    clipListView_.Layout(clientRect.right - clientRect.left,
+                         clientRect.bottom - clientRect.top);
     clipListView_.SetItems(config_.items);
 }
 
@@ -118,6 +125,9 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
             HideWindow();
             return 0;
         }
+        break;
+    case WM_SIZE:
+        clipListView_.Layout(LOWORD(lParam), HIWORD(lParam));
         break;
     case WM_ACTIVATE:
         if (wParam == WA_INACTIVE && IsWindowVisible(hwnd_)) {

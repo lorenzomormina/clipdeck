@@ -123,7 +123,10 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
     SendMessageW(settingsButton_, BM_SETIMAGE, IMAGE_ICON,
                  reinterpret_cast<LPARAM>(settingsIcon_));
 
-    LayoutToParentClientArea();
+    RECT clientRect = {};
+    GetClientRect(parent_, &clientRect);
+    Layout(clientRect.right - clientRect.left,
+           clientRect.bottom - clientRect.top);
 
     SetWindowLongPtrW(listBox_, GWLP_USERDATA,
                       reinterpret_cast<LONG_PTR>(this));
@@ -134,18 +137,16 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
     return true;
 }
 
-void ClipListView::LayoutToParentClientArea() {
+void ClipListView::SetWindowSettings(WindowSettings settings) {
+    windowSettings_ = settings;
+}
+
+void ClipListView::Layout(int clientWidth, int clientHeight) {
     if (!parent_ || !listBox_ || !filterTextBox_ || !settingsButton_) {
         return;
     }
 
-    RECT clientRect;
-    GetClientRect(parent_, &clientRect);
-
     const int margin = windowSettings_.margin;
-    const int clientWidth = clientRect.right - clientRect.left;
-    const int clientHeight = clientRect.bottom - clientRect.top;
-
     const int originalTextBoxWidth = std::max(0, clientWidth - 2 * margin);
     const int textBoxHeight =
         std::max(0, uiTextHeight_ + windowSettings_.textBoxMargin);
@@ -163,11 +164,10 @@ void ClipListView::LayoutToParentClientArea() {
         std::max(0, clientHeight - 3 * margin - textBoxHeight);
 
     MoveWindow(filterTextBox_, textBoxX, textBoxY, textBoxWidth, textBoxHeight,
-               FALSE);
+               TRUE);
     MoveWindow(settingsButton_, settingsButtonX, textBoxY, settingsButtonWidth,
-               textBoxHeight, FALSE);
-    MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight,
-               FALSE);
+               textBoxHeight, TRUE);
+    MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight, TRUE);
 }
 
 void ClipListView::Destroy() {

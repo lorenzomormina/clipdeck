@@ -18,6 +18,8 @@ class ClipListView {
     bool Create(HWND parent, HINSTANCE instance, WindowSettings settings);
     void Destroy();
 
+    void SetWindowSettings(WindowSettings settings);
+    void Layout(int clientWidth, int clientHeight);
     void SetItems(const std::vector<ClipItem> &items);
     Event HandleCommand(HWND parent, WPARAM wParam, LPARAM lParam);
     bool HandleTimer(HWND parent, WPARAM timerId);
@@ -38,7 +40,6 @@ class ClipListView {
 
     HFONT CreateSystemUiFont() const;
     void ReleaseControlResources();
-    void LayoutToParentClientArea();
     void ApplyCurrentFilter();
     void StartFilterDebounce(HWND parent) const;
     std::wstring ReadFilterText() const;

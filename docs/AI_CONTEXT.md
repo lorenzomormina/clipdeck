@@ -47,7 +47,7 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
 
    * left click opens the main window
    * right click shows a context menu with `Open`, `Config`, `Reload`, `Exit`
-   * `Reload` reparses config and refreshes in-memory items
+   * `Reload` reparses config, reapplies main-window sizing from config, and relayouts existing `ClipListView` controls
    * `Config` still shows a placeholder message box
 8. The main window shows:
 
@@ -159,7 +159,7 @@ The application currently has two concrete top-level windows:
 
 * `General.Hotkey` is parsed and stored, but not used; registration is still hardcoded
 * `ClipItem.EnableValueSearch` is parsed and stored, but filtering does not use it
-* `Window` settings affect main-window size and main-list layout creation, but relayout on later size changes is incomplete
+* `Window` settings affect main-window size and `ClipListView` layout; user-driven main-window resizing is temporary and not persisted back to `config.txt`
 * settings editing is functional but very basic
 * config save path only reports file-write failure; malformed config content is not validated for the user
 * auto-paste depends on best-effort focus restoration (`SetForegroundWindow`, `SetFocus`, `SendInput`)
@@ -444,8 +444,7 @@ Only issues justified by the current code are listed here.
 * filtering is key-only and case-sensitive
 * hidden items are still selectable; only their displayed value is masked
 * settings save writes raw text without validation; malformed config can silently reload as partial defaults
-* there is no `WM_SIZE` handling; control layout is not recomputed on user resize
-* `ReloadConfig()` resizes the main window and updates settings-window sizing, but existing child-control layout is not fully recomputed afterward
+* main-window resize is handled locally for `ClipListView`, but resized dimensions are still temporary and never persisted to `config.txt`
 * settings control positions are hardcoded and do not use `WindowSettings.margin` or `WindowSettings.textBoxMargin`
 * file I/O uses explicit UTF-8 write output with UTF-8/ACP read fallback, but there is still no user-facing encoding validation
 
@@ -456,8 +455,7 @@ Only issues justified by the current code are listed here.
 1. Make config-driven hotkey behavior real or remove the misleading `Hotkey` claim from config/docs.
 2. Decide the intended search semantics, then implement them locally in `ClipListView` and `AppConfig` without broad UI changes.
 3. Improve settings robustness: validation/error reporting before reload, and clarify desired raw-text editing behavior.
-4. Add local relayout handling for resize/reload instead of expanding the window architecture.
-5. Replace or remove the tray `Config` placeholder entry.
+4. Replace or remove the tray `Config` placeholder entry.
 
 ---
 
