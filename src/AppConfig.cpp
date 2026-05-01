@@ -19,6 +19,7 @@ enum class ParseSection {
     None,
     General,
     Window,
+    ConfigWindow,
     Item,
 };
 
@@ -291,6 +292,24 @@ void ApplyWindowSetting(AppConfig *config, const std::wstring &key,
     }
 }
 
+void ApplyConfigWindowSetting(AppConfig *config, const std::wstring &key,
+                              const std::wstring &valueToken) {
+    int parsed = 0;
+    if (key == L"Width") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->configWindowSettings.width = parsed;
+        }
+    } else if (key == L"Height") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->configWindowSettings.height = parsed;
+        }
+    } else if (key == L"Margin") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->configWindowSettings.margin = parsed;
+        }
+    }
+}
+
 void ApplyItemSetting(ClipItem *item, const std::wstring &key,
                       const std::wstring &valueToken) {
     if (key == L"Key") {
@@ -352,6 +371,9 @@ void ParseConfigFile(const std::filesystem::path &configPath,
             } else if (line == L"[Window]") {
                 currentSection = ParseSection::Window;
                 currentItem = nullptr;
+            } else if (line == L"[ConfigWindow]") {
+                currentSection = ParseSection::ConfigWindow;
+                currentItem = nullptr;
             } else if (line == L"[[Item]]") {
                 currentSection = ParseSection::Item;
                 config->items.emplace_back();
@@ -375,6 +397,9 @@ void ParseConfigFile(const std::filesystem::path &configPath,
             break;
         case ParseSection::Window:
             ApplyWindowSetting(config, key, valueToken);
+            break;
+        case ParseSection::ConfigWindow:
+            ApplyConfigWindowSetting(config, key, valueToken);
             break;
         case ParseSection::Item:
             if (currentItem != nullptr) {

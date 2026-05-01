@@ -1,5 +1,8 @@
 #include "SettingsWindow.h"
+#include "../resources/resource.h"
 
+#include <algorithm>
+#include <commctrl.h>
 #include <fstream>
 #include <utility>
 
@@ -10,6 +13,11 @@ namespace {
 constexpr int kSettingsTextAreaControlId = 3001;
 constexpr int kSettingsSaveButtonControlId = 3002;
 constexpr int kSettingsCancelButtonControlId = 3003;
+constexpr int kControlMargin = 4;
+constexpr int kIconButtonSize = 20;
+constexpr int kIconImageSize = 16;
+wchar_t kSaveToolTipText[] = L"Save";
+wchar_t kCancelToolTipText[] = L"Cancel";
 
 HFONT CreateSystemUiFont() {
     NONCLIENTMETRICSW metrics = {};
@@ -149,7 +157,7 @@ SettingsWindow::~SettingsWindow() { Destroy(); }
 
 void SettingsWindow::SetConfig(const AppConfig &config) {
     configPath_ = config.configPath;
-    windowSettings_ = config.windowSettings;
+    configWindowSettings_ = config.configWindowSettings;
     ApplyWindowSize();
 }
 
@@ -221,36 +229,37 @@ bool SettingsWindow::CreateWindowInstance() {
         return false;
     }
 
-    hwnd_ = CreateWindowExW(0, kWindowClassName, kWindowTitle,
-                            WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU,
-                            CW_USEDEFAULT, CW_USEDEFAULT,
-                            windowSettings_.width, windowSettings_.height,
-                            nullptr, nullptr, instance_, this);
+    hwnd_ = CreateWindowExW(
+        0, kWindowClassName, kWindowTitle,
+        WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_SIZEBOX, CW_USEDEFAULT,
+        CW_USEDEFAULT, configWindowSettings_.width,
+        configWindowSettings_.height, nullptr, nullptr, instance_, this);
     return hwnd_ != nullptr;
 }
 
 bool SettingsWindow::CreateControls() {
-    hTextArea_ = CreateWindowExW(
-        WS_EX_CLIENTEDGE, L"EDIT", L"",
-        WS_CHILD | WS_VISIBLE | ES_LEFT | ES_MULTILINE | ES_AUTOVSCROLL |
-            ES_AUTOHSCROLL | ES_WANTRETURN | WS_VSCROLL | WS_HSCROLL |
-            WS_TABSTOP,
-        10, 10, 360, 220, hwnd_,
-        reinterpret_cast<HMENU>(
-            static_cast<INT_PTR>(kSettingsTextAreaControlId)),
-        instance_, nullptr);
+    hTextArea_ =
+        CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+                        WS_CHILD | WS_VISIBLE | ES_LEFT | ES_MULTILINE |
+                            ES_AUTOVSCROLL | ES_AUTOHSCROLL | ES_WANTRETURN |
+                            WS_VSCROLL | WS_HSCROLL | WS_TABSTOP,
+                        0, 0, 0, 0, hwnd_,
+                        reinterpret_cast<HMENU>(
+                            static_cast<INT_PTR>(kSettingsTextAreaControlId)),
+                        instance_, nullptr);
 
     hSaveBtn_ = CreateWindowExW(
-        0, L"BUTTON", L"Save", WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON,
-        10, 240, 90, 28, hwnd_,
+        0, L"BUTTON", nullptr,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_ICON, 0, 0,
+        kIconButtonSize, kIconButtonSize, hwnd_,
         reinterpret_cast<HMENU>(
             static_cast<INT_PTR>(kSettingsSaveButtonControlId)),
         instance_, nullptr);
 
     hCancelBtn_ = CreateWindowExW(
-        0, L"BUTTON", L"Cancel",
-        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON, 110, 240, 90, 28,
-        hwnd_,
+        0, L"BUTTON", nullptr,
+        WS_CHILD | WS_VISIBLE | WS_TABSTOP | BS_PUSHBUTTON | BS_ICON, 0, 0,
+        kIconButtonSize, kIconButtonSize, hwnd_,
         reinterpret_cast<HMENU>(
             static_cast<INT_PTR>(kSettingsCancelButtonControlId)),
         instance_, nullptr);
@@ -272,6 +281,93 @@ bool SettingsWindow::CreateControls() {
                      TRUE);
     }
 
+    const int iconSize = kIconImageSize;
+    hSaveIcon_ = static_cast<HICON>(
+        LoadImageW(instance_, MAKEINTRESOURCEW(IDI_SAVE), IMAGE_ICON, iconSize,
+                   iconSize, LR_DEFAULTCOLOR));
+    hCancelIcon_ = static_cast<HICON>(
+        LoadImageW(instance_, MAKEINTRESOURCEW(IDI_CANCEL), IMAGE_ICON,
+                   iconSize, iconSize, LR_DEFAULTCOLOR));
+    if (!hSaveIcon_ || !hCancelIcon_) {
+        return false;
+    }
+
+    SendMessageW(hSaveBtn_, BM_SETIMAGE, IMAGE_ICON,
+                 reinterpret_cast<LPARAM>(hSaveIcon_));
+    SendMessageW(hCancelBtn_, BM_SETIMAGE, IMAGE_ICON,
+                 reinterpret_cast<LPARAM>(hCancelIcon_));
+
+    INITCOMMONCONTROLSEX commonControls = {};
+    commonControls.dwSize = sizeof(commonControls);
+    commonControls.dwICC = ICC_WIN95_CLASSES;
+    if (!InitCommonControlsEx(&commonControls)) {
+        return true;
+    }
+
+    hSaveToolTip_ = CreateWindowExW(
+        WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT, hwnd_, nullptr, instance_, nullptr);
+    if (hSaveToolTip_) {
+        TOOLINFOW toolInfo = {};
+#ifdef TTTOOLINFOW_V2_SIZE
+        toolInfo.cbSize = TTTOOLINFOW_V2_SIZE;
+#else
+        toolInfo.cbSize = sizeof(toolInfo);
+#endif
+        toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+        toolInfo.hwnd = hwnd_;
+        toolInfo.uId = reinterpret_cast<UINT_PTR>(hSaveBtn_);
+        toolInfo.lpszText = kSaveToolTipText;
+
+        if (!SendMessageW(hSaveToolTip_, TTM_ADDTOOLW, 0,
+                          reinterpret_cast<LPARAM>(&toolInfo))) {
+#ifdef TTTOOLINFOW_V1_SIZE
+            toolInfo.cbSize = TTTOOLINFOW_V1_SIZE;
+            if (!SendMessageW(hSaveToolTip_, TTM_ADDTOOLW, 0,
+                              reinterpret_cast<LPARAM>(&toolInfo))) {
+                DestroyWindow(hSaveToolTip_);
+                hSaveToolTip_ = nullptr;
+            }
+#else
+            DestroyWindow(hSaveToolTip_);
+            hSaveToolTip_ = nullptr;
+#endif
+        }
+    }
+
+    hCancelToolTip_ = CreateWindowExW(
+        WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT, hwnd_, nullptr, instance_, nullptr);
+    if (hCancelToolTip_) {
+        TOOLINFOW toolInfo = {};
+#ifdef TTTOOLINFOW_V2_SIZE
+        toolInfo.cbSize = TTTOOLINFOW_V2_SIZE;
+#else
+        toolInfo.cbSize = sizeof(toolInfo);
+#endif
+        toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+        toolInfo.hwnd = hwnd_;
+        toolInfo.uId = reinterpret_cast<UINT_PTR>(hCancelBtn_);
+        toolInfo.lpszText = kCancelToolTipText;
+
+        if (!SendMessageW(hCancelToolTip_, TTM_ADDTOOLW, 0,
+                          reinterpret_cast<LPARAM>(&toolInfo))) {
+#ifdef TTTOOLINFOW_V1_SIZE
+            toolInfo.cbSize = TTTOOLINFOW_V1_SIZE;
+            if (!SendMessageW(hCancelToolTip_, TTM_ADDTOOLW, 0,
+                              reinterpret_cast<LPARAM>(&toolInfo))) {
+                DestroyWindow(hCancelToolTip_);
+                hCancelToolTip_ = nullptr;
+            }
+#else
+            DestroyWindow(hCancelToolTip_);
+            hCancelToolTip_ = nullptr;
+#endif
+        }
+    }
+
     return true;
 }
 
@@ -280,9 +376,34 @@ void SettingsWindow::ApplyWindowSize() {
         return;
     }
 
-    SetWindowPos(hwnd_, nullptr, 0, 0, windowSettings_.width,
-                 windowSettings_.height,
+    SetWindowPos(hwnd_, nullptr, 0, 0, configWindowSettings_.width,
+                 configWindowSettings_.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+}
+
+void SettingsWindow::LayoutControls() const {
+    if (!hwnd_ || !hTextArea_ || !hSaveBtn_ || !hCancelBtn_) {
+        return;
+    }
+
+    RECT clientRect{};
+    if (!GetClientRect(hwnd_, &clientRect)) {
+        return;
+    }
+
+    const int clientWidth = clientRect.right - clientRect.left;
+    const int clientHeight = clientRect.bottom - clientRect.top;
+    const int buttonsTop = kControlMargin;
+    const int buttonsLeft = kControlMargin;
+    const int textTop = buttonsTop + kIconButtonSize + kControlMargin;
+    const int textWidth = std::max(0, clientWidth - (kControlMargin * 2));
+    const int textHeight = std::max(0, clientHeight - textTop - kControlMargin);
+    MoveWindow(hSaveBtn_, buttonsLeft, buttonsTop, kIconButtonSize,
+               kIconButtonSize, TRUE);
+    MoveWindow(hCancelBtn_, buttonsLeft + kIconButtonSize + kControlMargin,
+               buttonsTop, kIconButtonSize, kIconButtonSize, TRUE);
+    MoveWindow(hTextArea_, kControlMargin, textTop, textWidth, textHeight,
+               TRUE);
 }
 
 void SettingsWindow::LoadTextFromDisk() {
@@ -424,6 +545,10 @@ LRESULT SettingsWindow::HandleMessage(UINT message, WPARAM wParam,
             return -1;
         }
         ApplyWindowSize();
+        LayoutControls();
+        return 0;
+    case WM_SIZE:
+        LayoutControls();
         return 0;
     case WM_COMMAND:
         if (HandleCommand(wParam, lParam)) {
@@ -437,6 +562,22 @@ LRESULT SettingsWindow::HandleMessage(UINT message, WPARAM wParam,
         hTextArea_ = nullptr;
         hSaveBtn_ = nullptr;
         hCancelBtn_ = nullptr;
+        if (hSaveToolTip_ && IsWindow(hSaveToolTip_)) {
+            DestroyWindow(hSaveToolTip_);
+            hSaveToolTip_ = nullptr;
+        }
+        if (hCancelToolTip_ && IsWindow(hCancelToolTip_)) {
+            DestroyWindow(hCancelToolTip_);
+            hCancelToolTip_ = nullptr;
+        }
+        if (hSaveIcon_) {
+            DestroyIcon(hSaveIcon_);
+            hSaveIcon_ = nullptr;
+        }
+        if (hCancelIcon_) {
+            DestroyIcon(hCancelIcon_);
+            hCancelIcon_ = nullptr;
+        }
         settingsState_ = {};
         if (uiFont_) {
             DeleteObject(uiFont_);
@@ -452,8 +593,7 @@ LRESULT SettingsWindow::HandleMessage(UINT message, WPARAM wParam,
 }
 
 LRESULT CALLBACK SettingsWindow::WindowProcSetup(HWND hwnd, UINT message,
-                                                 WPARAM wParam,
-                                                 LPARAM lParam) {
+                                                 WPARAM wParam, LPARAM lParam) {
     if (message != WM_NCCREATE) {
         return DefWindowProcW(hwnd, message, wParam, lParam);
     }
@@ -471,8 +611,7 @@ LRESULT CALLBACK SettingsWindow::WindowProcSetup(HWND hwnd, UINT message,
 }
 
 LRESULT CALLBACK SettingsWindow::WindowProcThunk(HWND hwnd, UINT message,
-                                                 WPARAM wParam,
-                                                 LPARAM lParam) {
+                                                 WPARAM wParam, LPARAM lParam) {
     auto *self = reinterpret_cast<SettingsWindow *>(
         GetWindowLongPtrW(hwnd, GWLP_USERDATA));
     if (!self) {

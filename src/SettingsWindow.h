@@ -37,6 +37,7 @@ class SettingsWindow {
     bool CreateWindowInstance();
     bool CreateControls();
     void ApplyWindowSize();
+    void LayoutControls() const;
     void LoadTextFromDisk();
     void Hide();
     bool TryCloseOrHide();
@@ -55,13 +56,17 @@ class SettingsWindow {
 
     HINSTANCE instance_;
     std::filesystem::path configPath_;
-    WindowSettings windowSettings_;
+    ConfigWindowSettings configWindowSettings_;
     std::function<void()> onConfigSaved_;
 
     HWND hwnd_ = nullptr;
     HWND hTextArea_ = nullptr;
     HWND hSaveBtn_ = nullptr;
     HWND hCancelBtn_ = nullptr;
+    HWND hSaveToolTip_ = nullptr;
+    HWND hCancelToolTip_ = nullptr;
+    HICON hSaveIcon_ = nullptr;
+    HICON hCancelIcon_ = nullptr;
     HFONT uiFont_ = nullptr;
     SettingsState settingsState_;
 };

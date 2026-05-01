@@ -34,12 +34,19 @@ struct WindowSettings {
     int textBoxMargin = 6;
 };
 
+struct ConfigWindowSettings {
+    int width = 600;
+    int height = 400;
+    int margin = 4;
+};
+
 struct AppConfig {
     std::filesystem::path executableDirectory;
     std::filesystem::path configPath;
     std::filesystem::path iconPath;
     GeneralSettings generalSettings;
     WindowSettings windowSettings;
+    ConfigWindowSettings configWindowSettings;
     std::vector<ClipItem> items;
 };
 

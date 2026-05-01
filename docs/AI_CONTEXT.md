@@ -135,7 +135,7 @@ The application currently has two concrete top-level windows:
 **Current limits**
 
 * layout is fixed with hardcoded coordinates
-* size is still based on `WindowSettings.width` and `WindowSettings.height`
+* size is driven by the separate `[ConfigWindow]` section (`configWindowSettings`)
 * there is no config validation or parse error feedback before reload
 
 ---
@@ -195,6 +195,11 @@ Height=300
 Margin=4
 TextBoxMargin=6
 
+[ConfigWindow]
+Width=800
+Height=600
+Margin=4
+
 [[Item]]
 Key="firma"
 Value="Cordiali saluti,\nMario Rossi"
@@ -204,7 +209,7 @@ EnableValueSearch=true
 
 ### Current parser behavior
 
-* sections recognized: `[General]`, `[Window]`, `[[Item]]`
+ * sections recognized: `[General]`, `[Window]`, `[ConfigWindow]`, `[[Item]]`
 * inline comments beginning with `;` or `#` are stripped when outside quotes
 * quoted strings support `\n`, `\"`, and `\\`
 * unknown sections and unparseable lines are ignored
@@ -221,8 +226,13 @@ EnableValueSearch=true
 
 #### `[Window]`
 
-* `Width`, `Height`: used for main-window creation, reload sizing, and settings-window sizing
+* `Width`, `Height`: used for main-window creation and reload sizing
 * `Margin`, `TextBoxMargin`: used by `ClipListView` layout
+
+#### `[ConfigWindow]`
+
+* `Width`, `Height`: used for settings-window creation and reload sizing
+* `Margin`: parsed and stored, but not currently used by settings layout
 
 #### `[[Item]]`
 
