@@ -48,14 +48,14 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
 2. `MainWindow::Run()` creates the main HWND, then shows or hides it based on `GeneralSettings.startHidden`.
 3. On `WM_CREATE`, the main window creates only the snippet-list child controls from `ClipListView`.
 4. After window creation, the app adds a tray icon and registers a global hotkey.
-5. The hotkey is currently hardcoded to `Ctrl+Shift+Grave` (`MOD_CONTROL | MOD_SHIFT` + `VK_OEM_3`).
-   `General.Hotkey` is parsed from config but not used for registration.
+5. The hotkey is registered from `General.Hotkey` in `config.txt`.
+   Invalid hotkey text shows a message box and does not fall back to a hidden default.
 6. Hotkey press captures the currently focused external window, then toggles the main snippet window.
 7. Tray behavior:
 
    * left click opens the main window
    * right click shows a context menu with `Open`, `Config`, `Reload`, `Exit`
-   * `Reload` reparses config, reapplies main-window sizing from config, and relayouts existing `ClipListView` controls
+   * `Reload` reparses config, re-registers the global hotkey, reapplies main-window sizing from config, and relayouts existing `ClipListView` controls
    * `Config` still shows a placeholder message box
 8. The main window shows:
 
@@ -160,7 +160,7 @@ The application currently has two concrete top-level windows:
 * one main WinAPI top-level window for snippet selection
 * one separate WinAPI top-level settings window for raw config editing
 * tray icon with `Open`, `Reload`, and `Exit`
-* global hotkey registration
+* config-driven global hotkey registration
 * searchable key/value list UI
 * clipboard copy on item activation
 * optional auto-close after activation
@@ -170,7 +170,6 @@ The application currently has two concrete top-level windows:
 
 ### Partial / limited
 
-* `General.Hotkey` is parsed and stored, but not used; registration is still hardcoded
 * `ClipItem.EnableValueSearch` is parsed and stored, but filtering does not use it
 * `Window` settings affect main-window size and `ClipListView` layout; user-driven main-window resizing is temporary and not persisted back to `config.txt`
 * settings editing is functional but very basic
@@ -179,7 +178,6 @@ The application currently has two concrete top-level windows:
 
 ### Planned / not implemented
 
-* configurable hotkey registration from `General.Hotkey`
 * value-based search using `EnableValueSearch`
 * tray `Config` action opening the real settings window
 * stronger config validation and user-facing parse errors
@@ -235,7 +233,7 @@ EnableValueSearch=true
 * `StartHidden`: used
 * `AutoClose`: used
 * `AutoPaste`: used, but only within the current `AutoClose=true` activation branch
-* `Hotkey`: parsed only
+* `Hotkey`: used for global hotkey registration
 
 #### `[Window]`
 
@@ -359,6 +357,12 @@ There is still no separate save/validate API here; raw-text settings save writes
 * copies Unicode text to the Windows clipboard
 * attempts paste-back via focus restore + `SendInput`
 
+### `src/HotkeyParser.*`
+
+* parses `General.Hotkey` text into `RegisterHotKey` generic modifier flags and a WinAPI virtual-key code
+* accepts side-specific modifier names such as `LCtrl`, but maps them to generic `RegisterHotKey` flags because WinAPI does not support side-specific global hotkey modifiers
+* accepts `NumpadEnter` as `VK_RETURN` because `RegisterHotKey` has no distinct numpad-enter virtual-key constant
+
 ### `src/GlobalHotkey.*`
 
 * thin wrapper around `RegisterHotKey` / `UnregisterHotKey`
@@ -461,7 +465,6 @@ Behavior expectations future edits should preserve unless the task explicitly ch
 
 Only issues justified by the current code are listed here.
 
-* `General.Hotkey` is misleading today: it is parsed but ignored for registration.
 * `EnableValueSearch` is misleading today: it is parsed but never used by filtering.
 * tray menu `Config` exists but only shows `Config option not implemented yet.`
 * filtering is key-only and case-sensitive
@@ -475,10 +478,9 @@ Only issues justified by the current code are listed here.
 
 ## 14) Near-term priorities
 
-1. Make config-driven hotkey behavior real or remove the misleading `Hotkey` claim from config/docs.
-2. Decide the intended search semantics, then implement them locally in `ClipListView` and `AppConfig` without broad UI changes.
-3. Improve settings robustness: validation/error reporting before reload, and clarify desired raw-text editing behavior.
-4. Replace or remove the tray `Config` placeholder entry.
+1. Decide the intended search semantics, then implement them locally in `ClipListView` and `AppConfig` without broad UI changes.
+2. Improve settings robustness: validation/error reporting before reload, and clarify desired raw-text editing behavior.
+3. Replace or remove the tray `Config` placeholder entry.
 
 ---
 

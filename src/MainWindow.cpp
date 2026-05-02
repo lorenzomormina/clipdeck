@@ -1,5 +1,7 @@
 #include "MainWindow.h"
 
+#include "HotkeyParser.h"
+
 #include <utility>
 
 namespace clipass {
@@ -82,13 +84,28 @@ bool MainWindow::RegisterWindowClass() const {
 }
 
 bool MainWindow::RegisterGlobalHotkey() {
-    if (hotkey_.Register(hwnd_, kToggleHotkeyId, MOD_CONTROL | MOD_SHIFT,
-                         VK_OEM_3)) {
+    const std::wstring &hotkeyText = config_.generalSettings.hotkeyText;
+    hotkey_.Unregister();
+
+    ParsedHotkey parsedHotkey;
+    std::wstring parseError;
+    if (!ParseHotkey(hotkeyText, &parsedHotkey, &parseError)) {
+        const std::wstring message =
+            L"Invalid global hotkey in config.txt:\n\n\"" + hotkeyText +
+            L"\"\n\n" + parseError;
+        MessageBoxW(hwnd_, message.c_str(), L"Error", MB_ICONERROR);
+        return false;
+    }
+
+    if (hotkey_.Register(hwnd_, kToggleHotkeyId, parsedHotkey.modifiers,
+                         parsedHotkey.virtualKey)) {
         return true;
     }
 
-    MessageBoxW(hwnd_, L"Failed to register global hotkey (CTRL+SHIFT+GRAVE)",
-                L"Error", MB_ICONERROR);
+    const std::wstring message =
+        L"Failed to register global hotkey from config.txt:\n\n\"" +
+        hotkeyText + L"\"";
+    MessageBoxW(hwnd_, message.c_str(), L"Error", MB_ICONERROR);
     return false;
 }
 
@@ -99,6 +116,8 @@ void MainWindow::ReloadConfig() {
     if (!hwnd_) {
         return;
     }
+
+    RegisterGlobalHotkey();
 
     clipListView_.SetWindowSettings(config_.windowSettings);
     SetWindowPos(hwnd_, nullptr, 0, 0, config_.windowSettings.width,

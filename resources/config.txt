@@ -2,7 +2,7 @@
 ; Usa \n per inserire ritorni a capo nei valori.
 
 [General]
-Hotkey="Ctrl+Shift+Space" ; da implementare
+Hotkey="Ctrl+Shift+Backtick"
 StartHidden=false
 AutoClose=true
 AutoPaste=false ; può essere true solo se AutoClose è true

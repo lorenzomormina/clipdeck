@@ -14,6 +14,7 @@ add_executable(
     src/ClipboardUtils.cpp
     src/ClipListView.cpp
     src/GlobalHotkey.cpp
+    src/HotkeyParser.cpp
     src/MainWindow.cpp
     src/SettingsWindow.cpp
     src/TrayIcon.cpp
