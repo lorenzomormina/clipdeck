@@ -2,7 +2,7 @@
 
 #include <cstring>
 
-namespace clipass {
+namespace ClipDeck {
 
 FocusSnapshot CaptureFocusedWindow() {
     FocusSnapshot snapshot;
@@ -77,4 +77,4 @@ void PasteToWindow(const FocusSnapshot &snapshot) {
     SendInput(static_cast<UINT>(std::size(inputs)), inputs, sizeof(INPUT));
 }
 
-} // namespace clipass
+} // namespace ClipDeck

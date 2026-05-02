@@ -4,7 +4,7 @@
 #include <string>
 #include <vector>
 
-namespace clipass {
+namespace ClipDeck {
 
 struct ClipItem {
     std::wstring key;
@@ -52,4 +52,4 @@ struct AppConfig {
 
 AppConfig LoadAppConfig();
 
-} // namespace clipass
+} // namespace ClipDeck

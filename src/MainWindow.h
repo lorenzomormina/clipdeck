@@ -9,7 +9,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 class MainWindow {
   public:
@@ -18,8 +18,8 @@ class MainWindow {
     int Run(int nCmdShow);
 
   private:
-    static constexpr wchar_t kWindowClassName[] = L"ClipassMainWindow";
-    static constexpr wchar_t kWindowTitle[] = L"clipass";
+    static constexpr wchar_t kWindowClassName[] = L"ClipDeckMainWindow";
+    static constexpr wchar_t kWindowTitle[] = L"ClipDeck";
     static constexpr UINT kTrayIconId = 1;
     static constexpr UINT kTrayCallbackMessage = WM_APP + 1;
     static constexpr int kToggleHotkeyId = 1006;
@@ -59,4 +59,4 @@ class MainWindow {
     FocusSnapshot lastFocus_;
 };
 
-} // namespace clipass
+} // namespace ClipDeck

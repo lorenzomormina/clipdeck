@@ -7,7 +7,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 class SettingsWindow {
   public:
@@ -30,8 +30,8 @@ class SettingsWindow {
         bool suppressEditChange = false;
     };
 
-    static constexpr wchar_t kWindowClassName[] = L"ClipassSettingsWindow";
-    static constexpr wchar_t kWindowTitle[] = L"clipass settings";
+    static constexpr wchar_t kWindowClassName[] = L"ClipDeckSettingsWindow";
+    static constexpr wchar_t kWindowTitle[] = L"ClipDeck settings";
 
     bool RegisterWindowClass() const;
     bool CreateWindowInstance();
@@ -71,4 +71,4 @@ class SettingsWindow {
     SettingsState settingsState_;
 };
 
-} // namespace clipass
+} // namespace ClipDeck

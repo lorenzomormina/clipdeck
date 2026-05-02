@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 struct FocusSnapshot {
     HWND foregroundWindow = nullptr;
@@ -15,4 +15,4 @@ FocusSnapshot CaptureFocusedWindow();
 bool CopyTextToClipboard(const std::wstring &text);
 void PasteToWindow(const FocusSnapshot &snapshot);
 
-} // namespace clipass
+} // namespace ClipDeck

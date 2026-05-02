@@ -1,6 +1,6 @@
 #include "GlobalHotkey.h"
 
-namespace clipass {
+namespace ClipDeck {
 
 GlobalHotkey::~GlobalHotkey() { Unregister(); }
 
@@ -31,4 +31,4 @@ bool GlobalHotkey::Matches(WPARAM wParam) const {
     return owner_ != nullptr && wParam == static_cast<WPARAM>(id_);
 }
 
-} // namespace clipass
+} // namespace ClipDeck

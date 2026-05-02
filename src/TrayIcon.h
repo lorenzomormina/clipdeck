@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 class TrayIcon {
   public:
@@ -38,4 +38,4 @@ class TrayIcon {
     bool isAdded_ = false;
 };
 
-} // namespace clipass
+} // namespace ClipDeck

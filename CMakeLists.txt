@@ -1,12 +1,12 @@
 cmake_minimum_required(VERSION 3.10.0)
-project(clipass VERSION 0.1.0 LANGUAGES C CXX)
+project(ClipDeck VERSION 0.1.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 
 add_executable(
-    clipass
+    ClipDeck
     WIN32
     resources/resource.rc
     src/main.cpp
@@ -21,7 +21,7 @@ add_executable(
 )
 
 target_compile_definitions(
-    clipass
+    ClipDeck
     PRIVATE
         UNICODE
         _UNICODE
@@ -29,19 +29,19 @@ target_compile_definitions(
 )
 
 target_link_libraries(
-    clipass
+    ClipDeck
     PRIVATE
         comctl32
 )
 
-add_custom_command(TARGET clipass POST_BUILD
+add_custom_command(TARGET ClipDeck POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy_directory
             ${CMAKE_CURRENT_SOURCE_DIR}/resources/icons
-            $<TARGET_FILE_DIR:clipass>/icons
+            $<TARGET_FILE_DIR:ClipDeck>/icons
 )
 
-add_custom_command(TARGET clipass POST_BUILD
+add_custom_command(TARGET ClipDeck POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
             ${CMAKE_CURRENT_SOURCE_DIR}/resources/config.txt
-            $<TARGET_FILE_DIR:clipass>/config.txt
+            $<TARGET_FILE_DIR:ClipDeck>/config.txt
 )

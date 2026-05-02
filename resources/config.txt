@@ -1,4 +1,4 @@
-; Configurazione Clipass
+; Configurazione ClipDeck
 ; Usa \n per inserire ritorni a capo nei valori.
 
 [General]

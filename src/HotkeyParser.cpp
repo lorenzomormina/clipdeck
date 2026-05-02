@@ -6,7 +6,7 @@
 #include <unordered_map>
 #include <vector>
 
-namespace clipass {
+namespace ClipDeck {
 
 namespace {
 
@@ -44,8 +44,8 @@ std::vector<std::wstring> SplitHotkeyText(const std::wstring &hotkeyText) {
         const size_t separator = hotkeyText.find(L'+', start);
         const size_t end =
             separator == std::wstring::npos ? hotkeyText.size() : separator;
-        parts.push_back(TrimCopy(std::wstring_view(hotkeyText).substr(
-            start, end - start)));
+        parts.push_back(
+            TrimCopy(std::wstring_view(hotkeyText).substr(start, end - start)));
 
         if (separator == std::wstring::npos) {
             break;
@@ -58,12 +58,12 @@ std::vector<std::wstring> SplitHotkeyText(const std::wstring &hotkeyText) {
 
 bool TryParseModifier(const std::wstring &token, UINT *modifier) {
     static const std::unordered_map<std::wstring, UINT> kModifiers = {
-        {L"ctrl", MOD_CONTROL},   {L"lctrl", MOD_CONTROL},
-        {L"rctrl", MOD_CONTROL},  {L"shift", MOD_SHIFT},
-        {L"lshift", MOD_SHIFT},   {L"rshift", MOD_SHIFT},
-        {L"alt", MOD_ALT},        {L"lalt", MOD_ALT},
-        {L"ralt", MOD_ALT},       {L"win", MOD_WIN},
-        {L"lwin", MOD_WIN},       {L"rwin", MOD_WIN},
+        {L"ctrl", MOD_CONTROL},  {L"lctrl", MOD_CONTROL},
+        {L"rctrl", MOD_CONTROL}, {L"shift", MOD_SHIFT},
+        {L"lshift", MOD_SHIFT},  {L"rshift", MOD_SHIFT},
+        {L"alt", MOD_ALT},       {L"lalt", MOD_ALT},
+        {L"ralt", MOD_ALT},      {L"win", MOD_WIN},
+        {L"lwin", MOD_WIN},      {L"rwin", MOD_WIN},
     };
 
     const auto found = kModifiers.find(token);
@@ -77,12 +77,12 @@ bool TryParseModifier(const std::wstring &token, UINT *modifier) {
 
 std::wstring NormalizeAlias(const std::wstring &token) {
     static const std::unordered_map<std::wstring, std::wstring> kAliases = {
-        {L"esc", L"escape"},       {L"del", L"delete"},
-        {L"ins", L"insert"},       {L"pgup", L"pageup"},
-        {L"pgdn", L"pagedown"},    {L"return", L"enter"},
-        {L"spacebar", L"space"},   {L"prtsc", L"printscreen"},
-        {L"printscr", L"printscreen"},
-        {L"menu", L"contextmenu"}, {L"apps", L"contextmenu"},
+        {L"esc", L"escape"},           {L"del", L"delete"},
+        {L"ins", L"insert"},           {L"pgup", L"pageup"},
+        {L"pgdn", L"pagedown"},        {L"return", L"enter"},
+        {L"spacebar", L"space"},       {L"prtsc", L"printscreen"},
+        {L"printscr", L"printscreen"}, {L"menu", L"contextmenu"},
+        {L"apps", L"contextmenu"},
     };
 
     const auto found = kAliases.find(token);
@@ -260,4 +260,4 @@ bool ParseHotkey(const std::wstring &hotkeyText, ParsedHotkey *parsed,
     return true;
 }
 
-} // namespace clipass
+} // namespace ClipDeck

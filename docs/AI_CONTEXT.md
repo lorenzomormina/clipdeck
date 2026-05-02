@@ -1,4 +1,4 @@
-# AI Context - Clipass
+# AI Context - ClipDeck
 
 This file is at `docs/AI_CONTEXT.md`.
 
@@ -25,7 +25,7 @@ Treat `build/` as generated output, not as architecture guidance.
 
 ## 1) App purpose
 
-Clipass is a small WinAPI desktop utility for quickly inserting configured text snippets.
+ClipDeck is a small WinAPI desktop utility for quickly inserting configured text snippets.
 
 Today, in code, it:
 
@@ -562,7 +562,7 @@ The project is:
 
 ## 19) Summary for AI
 
-Clipass is a small WinAPI snippet inserter with:
+ClipDeck is a small WinAPI snippet inserter with:
 
 * one main snippet HWND
 * one separate settings HWND

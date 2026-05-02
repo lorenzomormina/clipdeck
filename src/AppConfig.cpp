@@ -8,7 +8,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 namespace {
 
@@ -425,4 +425,4 @@ AppConfig LoadAppConfig() {
     return config;
 }
 
-} // namespace clipass
+} // namespace ClipDeck

@@ -4,7 +4,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 struct ParsedHotkey {
     UINT modifiers = 0;
@@ -14,4 +14,4 @@ struct ParsedHotkey {
 bool ParseHotkey(const std::wstring &hotkeyText, ParsedHotkey *parsed,
                  std::wstring *errorMessage);
 
-} // namespace clipass
+} // namespace ClipDeck

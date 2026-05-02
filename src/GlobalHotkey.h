@@ -2,7 +2,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 class GlobalHotkey {
   public:
@@ -17,4 +17,4 @@ class GlobalHotkey {
     int id_ = 0;
 };
 
-} // namespace clipass
+} // namespace ClipDeck

@@ -5,7 +5,7 @@
 #include <commctrl.h>
 #include <string>
 
-namespace clipass {
+namespace ClipDeck {
 
 namespace {
 wchar_t kConfigurationToolTipText[] = L"Configuration";
@@ -289,8 +289,8 @@ LRESULT CALLBACK ClipListView::ListBoxProcThunk(HWND hwnd, UINT message,
         return 0;
     }
 
-    if (message == WM_CHAR && self->RedirectPrintableCharToFilter(wParam,
-                                                                  lParam)) {
+    if (message == WM_CHAR &&
+        self->RedirectPrintableCharToFilter(wParam, lParam)) {
         return 0;
     }
 
@@ -469,4 +469,4 @@ std::wstring ClipListView::ReadFilterText() const {
     return std::wstring(buffer.data());
 }
 
-} // namespace clipass
+} // namespace ClipDeck

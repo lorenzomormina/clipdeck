@@ -6,7 +6,7 @@
 #include <fstream>
 #include <utility>
 
-namespace clipass {
+namespace ClipDeck {
 
 namespace {
 
@@ -621,4 +621,4 @@ LRESULT CALLBACK SettingsWindow::WindowProcThunk(HWND hwnd, UINT message,
     return self->HandleMessage(message, wParam, lParam);
 }
 
-} // namespace clipass
+} // namespace ClipDeck

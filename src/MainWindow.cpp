@@ -4,7 +4,7 @@
 
 #include <utility>
 
-namespace clipass {
+namespace ClipDeck {
 
 MainWindow::MainWindow(HINSTANCE instance, AppConfig config)
     : instance_(instance), config_(std::move(config)),
@@ -23,7 +23,7 @@ int MainWindow::Run(int nCmdShow) {
     UpdateWindow(hwnd_);
 
     if (!trayIcon_.Add(hwnd_, kTrayIconId, kTrayCallbackMessage,
-                       config_.iconPath, L"clipass")) {
+                       config_.iconPath, L"ClipDeck")) {
         MessageBoxW(hwnd_, L"Could not load tray icon.", L"Error",
                     MB_ICONERROR);
     }
@@ -327,4 +327,4 @@ LRESULT CALLBACK MainWindow::WindowProcThunk(HWND hwnd, UINT message,
 
     return self->HandleMessage(message, wParam, lParam);
 }
-} // namespace clipass
+} // namespace ClipDeck

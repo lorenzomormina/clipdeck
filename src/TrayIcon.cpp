@@ -2,7 +2,7 @@
 
 #include <shellapi.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 TrayIcon::~TrayIcon() { Remove(); }
 
@@ -111,4 +111,4 @@ TrayIcon::MenuAction TrayIcon::ShowContextMenu(HWND owner) const {
     }
 }
 
-} // namespace clipass
+} // namespace ClipDeck

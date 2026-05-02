@@ -7,7 +7,7 @@
 
 #include <windows.h>
 
-namespace clipass {
+namespace ClipDeck {
 
 class ClipListView {
   public:
@@ -67,4 +67,4 @@ class ClipListView {
     int uiTextHeight_ = 0;
 };
 
-} // namespace clipass
+} // namespace ClipDeck
