@@ -275,6 +275,7 @@ void MainWindow::ToggleVisibility() {
 void MainWindow::ShowWindowAndActivate() {
     ShowWindow(hwnd_, SW_SHOW);
     SetForegroundWindow(hwnd_);
+    clipListView_.SelectFirstVisibleItem();
     clipListView_.FocusFilterBox();
 }
 

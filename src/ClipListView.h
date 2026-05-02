@@ -24,6 +24,7 @@ class ClipListView {
     Event HandleCommand(HWND parent, WPARAM wParam, LPARAM lParam);
     bool HandleTimer(HWND parent, WPARAM timerId);
     void FocusFilterBox() const;
+    bool SelectFirstVisibleItem() const;
     std::optional<size_t> GetSelectedItemIndex() const;
     HWND GetListHandle() const { return listBox_; }
     HWND GetSearchHandle() const { return filterTextBox_; }
@@ -38,10 +39,14 @@ class ClipListView {
 
     static LRESULT CALLBACK ListBoxProcThunk(HWND hwnd, UINT message,
                                              WPARAM wParam, LPARAM lParam);
+    static LRESULT CALLBACK FilterTextBoxProcThunk(HWND hwnd, UINT message,
+                                                   WPARAM wParam,
+                                                   LPARAM lParam);
 
     HFONT CreateSystemUiFont() const;
     void ReleaseControlResources();
     bool RedirectPrintableCharToFilter(WPARAM wParam, LPARAM lParam) const;
+    bool MoveSelection(int delta) const;
     void ApplyCurrentFilter();
     void StartFilterDebounce(HWND parent) const;
     std::wstring ReadFilterText() const;
@@ -54,6 +59,7 @@ class ClipListView {
     HICON settingsIcon_ = nullptr;
     HFONT uiFont_ = nullptr;
     WNDPROC originalListBoxProc_ = nullptr;
+    WNDPROC originalFilterTextBoxProc_ = nullptr;
 
     const std::vector<ClipItem> *items_ = nullptr;
     std::vector<size_t> visibleItemIndices_;

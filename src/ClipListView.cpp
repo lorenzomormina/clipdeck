@@ -134,6 +134,12 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
         listBox_, GWLP_WNDPROC,
         reinterpret_cast<LONG_PTR>(&ClipListView::ListBoxProcThunk)));
 
+    SetWindowLongPtrW(filterTextBox_, GWLP_USERDATA,
+                      reinterpret_cast<LONG_PTR>(this));
+    originalFilterTextBoxProc_ = reinterpret_cast<WNDPROC>(SetWindowLongPtrW(
+        filterTextBox_, GWLP_WNDPROC,
+        reinterpret_cast<LONG_PTR>(&ClipListView::FilterTextBoxProcThunk)));
+
     return true;
 }
 
@@ -238,6 +244,21 @@ void ClipListView::FocusFilterBox() const {
     }
 }
 
+bool ClipListView::SelectFirstVisibleItem() const {
+    if (!listBox_ || !IsWindow(listBox_)) {
+        return false;
+    }
+
+    const int itemCount =
+        static_cast<int>(SendMessageW(listBox_, LB_GETCOUNT, 0, 0));
+    if (itemCount <= 0 || itemCount == LB_ERR) {
+        return false;
+    }
+
+    SendMessageW(listBox_, LB_SETCURSEL, 0, 0);
+    return true;
+}
+
 std::optional<size_t> ClipListView::GetSelectedItemIndex() const {
     if (!listBox_) {
         return std::nullopt;
@@ -277,6 +298,31 @@ LRESULT CALLBACK ClipListView::ListBoxProcThunk(HWND hwnd, UINT message,
                            lParam);
 }
 
+LRESULT CALLBACK ClipListView::FilterTextBoxProcThunk(HWND hwnd, UINT message,
+                                                      WPARAM wParam,
+                                                      LPARAM lParam) {
+    auto *self = reinterpret_cast<ClipListView *>(
+        GetWindowLongPtrW(hwnd, GWLP_USERDATA));
+    if (!self || !self->originalFilterTextBoxProc_) {
+        return DefWindowProcW(hwnd, message, wParam, lParam);
+    }
+
+    if (message == WM_KEYDOWN) {
+        if (wParam == VK_DOWN) {
+            self->MoveSelection(1);
+            return 0;
+        }
+
+        if (wParam == VK_UP) {
+            self->MoveSelection(-1);
+            return 0;
+        }
+    }
+
+    return CallWindowProcW(self->originalFilterTextBoxProc_, hwnd, message,
+                           wParam, lParam);
+}
+
 HFONT ClipListView::CreateSystemUiFont() const {
     NONCLIENTMETRICSW metrics = {};
     metrics.cbSize = sizeof(metrics);
@@ -294,6 +340,14 @@ void ClipListView::ReleaseControlResources() {
                           reinterpret_cast<LONG_PTR>(originalListBoxProc_));
     }
     originalListBoxProc_ = nullptr;
+
+    if (filterTextBox_ && IsWindow(filterTextBox_) &&
+        originalFilterTextBoxProc_) {
+        SetWindowLongPtrW(
+            filterTextBox_, GWLP_WNDPROC,
+            reinterpret_cast<LONG_PTR>(originalFilterTextBoxProc_));
+    }
+    originalFilterTextBoxProc_ = nullptr;
 
     if (settingsToolTip_ && IsWindow(settingsToolTip_)) {
         DestroyWindow(settingsToolTip_);
@@ -330,11 +384,36 @@ bool ClipListView::RedirectPrintableCharToFilter(WPARAM wParam,
     return true;
 }
 
+bool ClipListView::MoveSelection(int delta) const {
+    if (!listBox_ || !IsWindow(listBox_)) {
+        return false;
+    }
+
+    const int itemCount =
+        static_cast<int>(SendMessageW(listBox_, LB_GETCOUNT, 0, 0));
+    if (itemCount <= 0 || itemCount == LB_ERR) {
+        return false;
+    }
+
+    int selectedRow =
+        static_cast<int>(SendMessageW(listBox_, LB_GETCURSEL, 0, 0));
+    if (selectedRow == LB_ERR) {
+        selectedRow = delta >= 0 ? 0 : itemCount - 1;
+    } else {
+        selectedRow = std::clamp(selectedRow + delta, 0, itemCount - 1);
+    }
+
+    SendMessageW(listBox_, LB_SETCURSEL, selectedRow, 0);
+    return true;
+}
+
 void ClipListView::ApplyCurrentFilter() {
     if (!listBox_) {
         return;
     }
 
+    const std::optional<size_t> previousSelectedItemIndex =
+        GetSelectedItemIndex();
     const std::wstring filter = ReadFilterText();
 
     SendMessageW(listBox_, LB_RESETCONTENT, 0, 0);
@@ -355,6 +434,20 @@ void ClipListView::ApplyCurrentFilter() {
         SendMessageW(listBox_, LB_ADDSTRING, 0,
                      reinterpret_cast<LPARAM>(displayText.c_str()));
     }
+
+    if (previousSelectedItemIndex) {
+        const auto selectedItem =
+            std::find(visibleItemIndices_.begin(), visibleItemIndices_.end(),
+                      *previousSelectedItemIndex);
+        if (selectedItem != visibleItemIndices_.end()) {
+            const int selectedRow =
+                static_cast<int>(selectedItem - visibleItemIndices_.begin());
+            SendMessageW(listBox_, LB_SETCURSEL, selectedRow, 0);
+            return;
+        }
+    }
+
+    SelectFirstVisibleItem();
 }
 
 void ClipListView::StartFilterDebounce(HWND parent) const {

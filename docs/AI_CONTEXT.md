@@ -110,8 +110,11 @@ The application currently has two concrete top-level windows:
 * settings button sits next to the filter textbox
 * list box fills the upper area
 * showing or activating the main window through the app flow focuses the filter textbox
+* showing or activating the main window selects the first visible list item when any filtered items are present
+* pressing Up/Down while the filter textbox is focused moves the listbox selection without moving focus out of the filter textbox
 * printable text typed while the list box has focus is redirected into the filter textbox
 * filtering is debounced
+* after filtering, the selected underlying item is preserved if it remains visible; otherwise the first visible result is selected when any results are present
 * activation is by double click or `Enter` in the list box
 * selected item value is copied to clipboard
 * hidden items are still present in the list, but their displayed value is masked as `*****`
