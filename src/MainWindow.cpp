@@ -33,6 +33,13 @@ int MainWindow::Run(int nCmdShow) {
             continue;
         }
 
+        if (message.message == WM_KEYDOWN && message.wParam == VK_ESCAPE &&
+            hwnd_ && IsWindow(hwnd_) &&
+            (message.hwnd == hwnd_ || IsChild(hwnd_, message.hwnd))) {
+            HideWindow();
+            continue;
+        }
+
         TranslateMessage(&message);
         DispatchMessageW(&message);
     }

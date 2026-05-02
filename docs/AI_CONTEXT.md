@@ -1,5 +1,13 @@
 # AI Context - Clipass
 
+This file is at `docs/AI_CONTEXT.md`.
+
+When ChatGPT generates a prompt for Codex, it MUST include a dedicated section at the top of the prompt with the following instruction:
+
+"Before making any changes, read `docs/AI_CONTEXT.md` and use it as the authoritative context for architecture, behavior, and constraints. If the code and the document disagree, follow the code."
+
+This instruction must always be included verbatim or with equivalent strength.
+
 ## 0) Reality over intent
 
 This document is a working guide, not a source of truth above the code.
