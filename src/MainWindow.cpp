@@ -54,8 +54,9 @@ bool MainWindow::CreateMainWindow() {
     if (!hwnd_)
         return false;
 
-    // Show or hide window based on config_.generalSettings.startHidden.
-    ShowWindow(hwnd_, config_.generalSettings.startHidden ? SW_HIDE : SW_SHOW);
+    if (!config_.generalSettings.startHidden) {
+        ShowWindowAndActivate();
+    }
 
     return true;
 }
@@ -267,6 +268,7 @@ void MainWindow::ToggleVisibility() {
 void MainWindow::ShowWindowAndActivate() {
     ShowWindow(hwnd_, SW_SHOW);
     SetForegroundWindow(hwnd_);
+    clipListView_.FocusFilterBox();
 }
 
 void MainWindow::HideWindow() { ShowWindow(hwnd_, SW_HIDE); }

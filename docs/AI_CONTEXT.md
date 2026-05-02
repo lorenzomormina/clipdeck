@@ -101,6 +101,8 @@ The application currently has two concrete top-level windows:
 * filter textbox sits at the bottom of the client area
 * settings button sits next to the filter textbox
 * list box fills the upper area
+* showing or activating the main window through the app flow focuses the filter textbox
+* printable text typed while the list box has focus is redirected into the filter textbox
 * filtering is debounced
 * activation is by double click or `Enter` in the list box
 * selected item value is copied to clipboard

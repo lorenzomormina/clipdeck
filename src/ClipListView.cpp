@@ -232,6 +232,12 @@ bool ClipListView::HandleTimer(HWND parent, WPARAM timerId) {
     return true;
 }
 
+void ClipListView::FocusFilterBox() const {
+    if (filterTextBox_ && IsWindow(filterTextBox_)) {
+        SetFocus(filterTextBox_);
+    }
+}
+
 std::optional<size_t> ClipListView::GetSelectedItemIndex() const {
     if (!listBox_) {
         return std::nullopt;
@@ -259,6 +265,11 @@ LRESULT CALLBACK ClipListView::ListBoxProcThunk(HWND hwnd, UINT message,
         SendMessageW(self->parent_, WM_COMMAND,
                      MAKEWPARAM(kListBoxControlId, LBN_DBLCLK),
                      reinterpret_cast<LPARAM>(hwnd));
+        return 0;
+    }
+
+    if (message == WM_CHAR && self->RedirectPrintableCharToFilter(wParam,
+                                                                  lParam)) {
         return 0;
     }
 
@@ -298,6 +309,25 @@ void ClipListView::ReleaseControlResources() {
         DeleteObject(uiFont_);
         uiFont_ = nullptr;
     }
+}
+
+bool ClipListView::RedirectPrintableCharToFilter(WPARAM wParam,
+                                                 LPARAM lParam) const {
+    if (!filterTextBox_ || !IsWindow(filterTextBox_)) {
+        return false;
+    }
+
+    const wchar_t typedChar = static_cast<wchar_t>(wParam);
+    if (typedChar < L' ' || typedChar == 0x7F) {
+        return false;
+    }
+
+    const UINT repeatCount = std::max<UINT>(1, LOWORD(lParam));
+    std::wstring insertedText(repeatCount, typedChar);
+    SetFocus(filterTextBox_);
+    SendMessageW(filterTextBox_, EM_REPLACESEL, TRUE,
+                 reinterpret_cast<LPARAM>(insertedText.c_str()));
+    return true;
 }
 
 void ClipListView::ApplyCurrentFilter() {
