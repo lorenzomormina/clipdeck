@@ -1,11 +1,11 @@
-; Configurazione ClipDeck
-; Usa \n per inserire ritorni a capo nei valori.
+; ClipDeck configuration
+; Use \n in order to insert newlines in Values
 
 [General]
 Hotkey="Ctrl+Shift+Backtick"
-StartHidden=false
+StartHidden=false ; should be true by default on release
 AutoClose=true
-AutoPaste=false ; può essere true solo se AutoClose è true
+AutoPaste=false ; can be true only if AutoClose is true
 
 [Window]
 Width=400
@@ -20,18 +20,18 @@ Margin=4
 
 [[Item]]
 Key="email"
-Value="nome.cognome@example.com"
+Value="firstname.lastname@example.com"
 
 [[Item]]
-Key="telefono"
+Key="phone number"
 Value="+39 333 1234567"
 Hidden=false
 
 [[Item]]
-Key="firma"
-Value="Cordiali saluti,\nMario Rossi"
+Key="signature"
+Value="Best regards,\nJohn Doe"
 Hidden=false
-EnableValueSearch=true # da implementare
+EnableValueSearch=true # to be implemented
 
 [[Item]]
 Key="secret"
@@ -39,23 +39,23 @@ Value="mysecret"
 Hidden=true
 
 [[Item]]
-Key="contatto alice"
+Key="contact Alice"
 Value="alice@example.com"
 Hidden=false
 
 [[Item]]
-Key="contatto beatrice"
-Value="beatrice@example.com"
+Key="contact beatrix"
+Value="beatrix@example.com"
 Hidden=false
 
 [[Item]]
-Key="contatto; carmelo" ; commento
-Value="carmelo@example.com"
+Key="contact; carl" ; comment
+Value="carl@example.com"
 Hidden=false
 
 [[Item]]
 Key="quoted string"
-Value="\"quoted;string\"" ; commento
+Value="\"quoted;string\"" ; comment
 Hidden=false
 
 [[Item]]
@@ -64,6 +64,6 @@ Value="42"
 Hidden=false
 
 [[Item]]
-Key="lettere accentate"
+Key="accented letters"
 Value="è è é é î È É"
 Hidden=false
