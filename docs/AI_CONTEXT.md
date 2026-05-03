@@ -34,7 +34,8 @@ Today, in code, it:
 * uses one top-level main window for snippet selection
 * uses one separate top-level settings window for raw config editing
 * copies the selected value to the clipboard
-* optionally auto-pastes into the previously focused window, but only in the current `AutoClose=true` flow
+* optionally hides the main window and auto-pastes into the previously focused window, using per-item `AutoClose` / `AutoPaste` overrides when present
+* auto-paste only runs in the effective `AutoClose=true` activation flow
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
 
@@ -65,23 +66,24 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
 9. Typing in the filter box starts a 100 ms debounce timer. Filtering currently matches `ClipItem.key` only, using a case-sensitive substring check.
 10. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
 11. Activation copies the selected value to the clipboard.
-12. If `AutoClose=true`, the main window hides after activation.
-13. If `AutoClose=true` and `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
-14. Clicking the settings button opens a separate top-level settings window.
+12. Activation computes effective `AutoClose` and `AutoPaste` from the selected item first, falling back to `[General]` for each missing item field.
+13. If effective `AutoClose=true`, the main window hides after activation.
+14. If effective `AutoClose=true` and effective `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
+15. Clicking the settings button opens a separate top-level settings window.
     If it does not exist yet, the app creates it first.
     If it already exists, the app shows it and brings it to the foreground.
-15. After opening settings from the main window, the main window hides.
-16. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
-17. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
-18. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
+16. After opening settings from the main window, the main window hides.
+17. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
+18. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
+19. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
 
    * if not dirty, hide the settings window
    * if dirty, show `Yes / No / Cancel`
    * `Yes` saves, reloads config, then hides the settings window
    * `No` discards editor changes, then hides the settings window
    * `Cancel` keeps the settings window open
-19. The main window auto-hides on focus loss while visible.
-20. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
+20. The main window auto-hides on focus loss while visible.
+21. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
 
 ---
 
@@ -163,8 +165,8 @@ The application currently has two concrete top-level windows:
 * config-driven global hotkey registration
 * searchable key/value list UI
 * clipboard copy on item activation
-* optional auto-close after activation
-* optional auto-paste attempt back to the previously focused window
+* optional auto-close after activation, with per-item `AutoClose` overrides
+* optional auto-paste attempt back to the previously focused window, with per-item `AutoPaste` overrides
 * raw config text editor with save/discard confirmation
 * config reload after settings save or tray reload
 
@@ -216,6 +218,8 @@ Key="firma"
 Value="Cordiali saluti,\nMario Rossi"
 Hidden=false
 EnableValueSearch=true
+AutoClose=false
+AutoPaste=true
 ```
 
 ### Current parser behavior
@@ -231,8 +235,8 @@ EnableValueSearch=true
 #### `[General]`
 
 * `StartHidden`: used
-* `AutoClose`: used
-* `AutoPaste`: used, but only within the current `AutoClose=true` activation branch
+* `AutoClose`: used as the global default for activation close behavior
+* `AutoPaste`: used as the global default for paste behavior, but paste still only runs inside the effective `AutoClose=true` activation branch
 * `Hotkey`: used for global hotkey registration
 
 #### `[Window]`
@@ -251,6 +255,11 @@ EnableValueSearch=true
 * `Value`: used for clipboard/paste output
 * `Hidden`: used only to mask the visible display text
 * `EnableValueSearch`: parsed only
+* `AutoClose`: optional per-item override for `General.AutoClose`
+* `AutoPaste`: optional per-item override for `General.AutoPaste`
+
+Missing item-level `AutoClose` / `AutoPaste` fields fall back independently to `[General]`.
+On activation, the selected value is always copied first. The effective `AutoClose` value then decides whether the main window hides. The effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
 
 ### Important note about config editing
 

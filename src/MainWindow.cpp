@@ -269,14 +269,20 @@ void MainWindow::ActivateSelectedItem() {
         return;
     }
 
-    const std::wstring &selectedValue = config_.items[*selectedIndex].value;
+    const ClipItem &selectedItem = config_.items[*selectedIndex];
+    const std::wstring &selectedValue = selectedItem.value;
     if (!CopyTextToClipboard(selectedValue)) {
         return;
     }
 
-    if (config_.generalSettings.autoClose) {
+    const bool effectiveAutoClose =
+        selectedItem.autoClose.value_or(config_.generalSettings.autoClose);
+    const bool effectiveAutoPaste =
+        selectedItem.autoPaste.value_or(config_.generalSettings.autoPaste);
+
+    if (effectiveAutoClose) {
         HideWindow();
-        if (config_.generalSettings.autoPaste) {
+        if (effectiveAutoPaste) {
             PasteToWindow(lastFocus_);
         }
     }

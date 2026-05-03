@@ -337,6 +337,14 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             item->enableSearchValue = parsed;
         }
+    } else if (key == L"AutoClose") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            item->autoClose = parsed;
+        }
+    } else if (key == L"AutoPaste") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            item->autoPaste = parsed;
+        }
     }
 }
 

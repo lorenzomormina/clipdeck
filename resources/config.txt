@@ -21,11 +21,13 @@ Margin=4
 [[Item]]
 Key="email"
 Value="firstname.lastname@example.com"
+AutoClose=false ; override the general setting
 
 [[Item]]
 Key="phone number"
 Value="+39 333 1234567"
 Hidden=false
+AutoPaste=true ; override the general setting; pastes only when effective AutoClose is true
 
 [[Item]]
 Key="signature"

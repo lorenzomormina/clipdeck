@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -11,6 +12,8 @@ struct ClipItem {
     std::wstring value;
     bool hidden = false;
     bool enableSearchValue = false;
+    std::optional<bool> autoClose;
+    std::optional<bool> autoPaste;
 
     std::wstring GetDisplayText() const {
         if (hidden) {
