@@ -11,7 +11,12 @@ namespace ClipDeck {
 
 class ClipListView {
   public:
-    enum class Event { None, ActivateSelectedItem, OpenSettings };
+    enum class Event {
+        None,
+        ActivateSelectedItem,
+        ActivateSelectedItemCopyOnly,
+        OpenSettings
+    };
 
     ~ClipListView();
 

@@ -9,6 +9,8 @@ namespace ClipDeck {
 
 namespace {
 wchar_t kConfigurationToolTipText[] = L"Configuration";
+
+bool IsControlKeyDown() { return (GetKeyState(VK_CONTROL) & 0x8000) != 0; }
 }
 
 ClipListView::~ClipListView() { Destroy(); }
@@ -216,7 +218,8 @@ ClipListView::Event ClipListView::HandleCommand(HWND parent, WPARAM wParam,
     if (controlId == kListBoxControlId &&
         reinterpret_cast<HWND>(lParam) == listBox_ &&
         notifyCode == LBN_DBLCLK) {
-        return Event::ActivateSelectedItem;
+        return IsControlKeyDown() ? Event::ActivateSelectedItemCopyOnly
+                                  : Event::ActivateSelectedItem;
     }
 
     if (controlId == kSettingsButtonControlId &&

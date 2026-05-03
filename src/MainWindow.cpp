@@ -249,7 +249,12 @@ void MainWindow::OnTrayMenuAction(TrayIcon::MenuAction action) {
 
 void MainWindow::OnClipListEvent(ClipListView::Event event) {
     if (event == ClipListView::Event::ActivateSelectedItem) {
-        ActivateSelectedItem();
+        ActivateSelectedItem(false);
+        return;
+    }
+
+    if (event == ClipListView::Event::ActivateSelectedItemCopyOnly) {
+        ActivateSelectedItem(true);
         return;
     }
 
@@ -263,7 +268,7 @@ void MainWindow::OnHotkey() {
     ToggleVisibility();
 }
 
-void MainWindow::ActivateSelectedItem() {
+void MainWindow::ActivateSelectedItem(bool copyOnly) {
     const auto selectedIndex = clipListView_.GetSelectedItemIndex();
     if (!selectedIndex || *selectedIndex >= config_.items.size()) {
         return;
@@ -272,6 +277,10 @@ void MainWindow::ActivateSelectedItem() {
     const ClipItem &selectedItem = config_.items[*selectedIndex];
     const std::wstring &selectedValue = selectedItem.value;
     if (!CopyTextToClipboard(selectedValue)) {
+        return;
+    }
+
+    if (copyOnly) {
         return;
     }
 

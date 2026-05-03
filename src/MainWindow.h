@@ -43,7 +43,7 @@ class MainWindow {
     void OnTrayMenuAction(TrayIcon::MenuAction action);
     void OnClipListEvent(ClipListView::Event event);
     void OnHotkey();
-    void ActivateSelectedItem();
+    void ActivateSelectedItem(bool copyOnly);
 
     void ToggleVisibility();
     void ShowWindowAndActivate();

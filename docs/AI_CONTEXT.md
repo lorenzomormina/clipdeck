@@ -35,6 +35,7 @@ Today, in code, it:
 * uses one separate top-level settings window for raw config editing
 * copies the selected value to the clipboard
 * optionally hides the main window and auto-pastes into the previously focused window, using per-item `AutoClose` / `AutoPaste` overrides when present
+* supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected value without closing or auto-pasting
 * auto-paste only runs in the effective `AutoClose=true` activation flow
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
@@ -65,25 +66,27 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
    * a settings icon button
 9. Typing in the filter box starts a 100 ms debounce timer. Filtering currently matches `ClipItem.key` only, using a case-sensitive substring check.
 10. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
-11. Activation copies the selected value to the clipboard.
-12. Activation computes effective `AutoClose` and `AutoPaste` from the selected item first, falling back to `[General]` for each missing item field.
-13. If effective `AutoClose=true`, the main window hides after activation.
-14. If effective `AutoClose=true` and effective `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
-15. Clicking the settings button opens a separate top-level settings window.
+11. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
+12. Activation copies the selected value to the clipboard.
+13. In normal activation, the app computes effective `AutoClose` and `AutoPaste` from the selected item first, falling back to `[General]` for each missing item field.
+14. If effective `AutoClose=true`, the main window hides after normal activation.
+15. If effective `AutoClose=true` and effective `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
+16. In copy-only activation, the app ignores `AutoClose` and `AutoPaste`: it does not hide the main window and does not auto-paste.
+17. Clicking the settings button opens a separate top-level settings window.
     If it does not exist yet, the app creates it first.
     If it already exists, the app shows it and brings it to the foreground.
-16. After opening settings from the main window, the main window hides.
-17. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
-18. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
-19. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
+18. After opening settings from the main window, the main window hides.
+19. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
+20. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
+21. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
 
    * if not dirty, hide the settings window
    * if dirty, show `Yes / No / Cancel`
    * `Yes` saves, reloads config, then hides the settings window
    * `No` discards editor changes, then hides the settings window
    * `Cancel` keeps the settings window open
-20. The main window auto-hides on focus loss while visible.
-21. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
+22. The main window auto-hides on focus loss while visible.
+23. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
 
 ---
 
@@ -118,6 +121,7 @@ The application currently has two concrete top-level windows:
 * filtering is debounced
 * after filtering, the selected underlying item is preserved if it remains visible; otherwise the first visible result is selected when any results are present
 * activation is by double click or `Enter` in the list box
+* holding `Ctrl` during double click or `Enter` performs copy-only activation: copy to clipboard without closing or auto-pasting
 * selected item value is copied to clipboard
 * hidden items are still present in the list, but their displayed value is masked as `*****`
 * the window uses tool-window style and is hidden from the taskbar
@@ -165,6 +169,7 @@ The application currently has two concrete top-level windows:
 * config-driven global hotkey registration
 * searchable key/value list UI
 * clipboard copy on item activation
+* copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`
 * optional auto-close after activation, with per-item `AutoClose` overrides
 * optional auto-paste attempt back to the previously focused window, with per-item `AutoPaste` overrides
 * raw config text editor with save/discard confirmation
@@ -433,6 +438,7 @@ Behavior expectations future edits should preserve unless the task explicitly ch
 * settings dirty-check blocks accidental leave when user chooses `Cancel`
 * settings `Save` writes raw text first, then reloads config
 * item activation always copies first; paste is additional behavior
+* copy-only activation must ignore `AutoClose` / `AutoPaste` and keep the main window open
 
 ---
 
