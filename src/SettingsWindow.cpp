@@ -13,7 +13,6 @@ namespace {
 constexpr int kSettingsTextAreaControlId = 3001;
 constexpr int kSettingsSaveButtonControlId = 3002;
 constexpr int kSettingsCancelButtonControlId = 3003;
-constexpr int kControlMargin = 4;
 constexpr int kIconButtonSize = 20;
 constexpr int kIconImageSize = 16;
 wchar_t kSaveToolTipText[] = L"Save";
@@ -158,7 +157,8 @@ SettingsWindow::~SettingsWindow() { Destroy(); }
 void SettingsWindow::SetConfig(const AppConfig &config) {
     configPath_ = config.configPath;
     configWindowSettings_ = config.configWindowSettings;
-    ApplyWindowSize();
+    // ApplyWindowSize();
+    LayoutControls();
 }
 
 void SettingsWindow::SetConfigSavedCallback(std::function<void()> callback) {
@@ -371,39 +371,35 @@ bool SettingsWindow::CreateControls() {
     return true;
 }
 
-void SettingsWindow::ApplyWindowSize() {
-    if (!hwnd_) {
+// si triggera quando cambia la dimensione della finestra; se cambia solo il
+// margine nella config, non viene chiamata questa funzione
+void SettingsWindow::LayoutControls() const {
+    if (!hwnd_ || !hTextArea_ || !hSaveBtn_ || !hCancelBtn_) {
         return;
     }
 
     SetWindowPos(hwnd_, nullptr, 0, 0, configWindowSettings_.width,
                  configWindowSettings_.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-}
-
-void SettingsWindow::LayoutControls() const {
-    if (!hwnd_ || !hTextArea_ || !hSaveBtn_ || !hCancelBtn_) {
-        return;
-    }
 
     RECT clientRect{};
     if (!GetClientRect(hwnd_, &clientRect)) {
         return;
     }
 
+    const int margin = configWindowSettings_.margin;
     const int clientWidth = clientRect.right - clientRect.left;
     const int clientHeight = clientRect.bottom - clientRect.top;
-    const int buttonsTop = kControlMargin;
-    const int buttonsLeft = kControlMargin;
-    const int textTop = buttonsTop + kIconButtonSize + kControlMargin;
-    const int textWidth = std::max(0, clientWidth - (kControlMargin * 2));
-    const int textHeight = std::max(0, clientHeight - textTop - kControlMargin);
+    const int buttonsTop = margin;
+    const int buttonsLeft = margin;
+    const int textTop = buttonsTop + kIconButtonSize + margin;
+    const int textWidth = std::max(0, clientWidth - (margin * 2));
+    const int textHeight = std::max(0, clientHeight - textTop - margin);
     MoveWindow(hSaveBtn_, buttonsLeft, buttonsTop, kIconButtonSize,
                kIconButtonSize, TRUE);
-    MoveWindow(hCancelBtn_, buttonsLeft + kIconButtonSize + kControlMargin,
-               buttonsTop, kIconButtonSize, kIconButtonSize, TRUE);
-    MoveWindow(hTextArea_, kControlMargin, textTop, textWidth, textHeight,
-               TRUE);
+    MoveWindow(hCancelBtn_, buttonsLeft + kIconButtonSize + margin, buttonsTop,
+               kIconButtonSize, kIconButtonSize, TRUE);
+    MoveWindow(hTextArea_, margin, textTop, textWidth, textHeight, TRUE);
 }
 
 void SettingsWindow::LoadTextFromDisk() {
@@ -544,7 +540,6 @@ LRESULT SettingsWindow::HandleMessage(UINT message, WPARAM wParam,
         if (!CreateControls()) {
             return -1;
         }
-        ApplyWindowSize();
         LayoutControls();
         return 0;
     case WM_SIZE:

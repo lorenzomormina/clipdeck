@@ -36,7 +36,6 @@ class SettingsWindow {
     bool RegisterWindowClass() const;
     bool CreateWindowInstance();
     bool CreateControls();
-    void ApplyWindowSize();
     void LayoutControls() const;
     void LoadTextFromDisk();
     void Hide();
