@@ -138,8 +138,8 @@ The application currently has two concrete top-level windows:
 **Existing controls**
 
 * multiline `EDIT` control with scrollbars
-* `Save` button
-* `Cancel` button
+* icon-only `Save` button with tooltip
+* icon-only `Cancel` button with tooltip
 
 **Observed behavior**
 
@@ -153,8 +153,10 @@ The application currently has two concrete top-level windows:
 
 **Current limits**
 
-* layout is fixed with hardcoded coordinates
+* layout uses hardcoded constants, but relayouts on `WM_SIZE`
+* `Save` and `Cancel` icon buttons are anchored at the top-left; the editor sits below them and fills the remaining client area
 * size is driven by the separate `[ConfigWindow]` section (`configWindowSettings`)
+* `[ConfigWindow].Margin` is parsed and stored, but not currently used by settings layout
 * there is no config validation or parse error feedback before reload
 
 ---
@@ -486,7 +488,7 @@ Only issues justified by the current code are listed here.
 * hidden items are still selectable; only their displayed value is masked
 * settings save writes raw text without validation; malformed config can silently reload as partial defaults
 * main-window resize is handled locally for `ClipListView`, but resized dimensions are still temporary and never persisted to `config.txt`
-* settings control positions are hardcoded and do not use `WindowSettings.margin` or `WindowSettings.textBoxMargin`
+* settings-window resize is handled locally, but `[ConfigWindow].Margin` is ignored and resized dimensions are still temporary and never persisted to `config.txt`
 * file I/O uses explicit UTF-8 write output with UTF-8/ACP read fallback, but there is still no user-facing encoding validation
 
 ---
