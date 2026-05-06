@@ -120,6 +120,8 @@ void MainWindow::ReloadConfig() {
     RegisterGlobalHotkey();
 
     clipListView_.SetWindowSettings(config_.windowSettings);
+    clipListView_.SetEnableValueSearch(
+        config_.generalSettings.enableValueSearch);
     SetWindowPos(hwnd_, nullptr, 0, 0, config_.windowSettings.width,
                  config_.windowSettings.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -194,7 +196,8 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 }
 
 LRESULT MainWindow::OnCreate() {
-    if (!clipListView_.Create(hwnd_, instance_, config_.windowSettings)) {
+    if (!clipListView_.Create(hwnd_, instance_, config_.windowSettings,
+                              config_.generalSettings.enableValueSearch)) {
         return -1;
     }
 

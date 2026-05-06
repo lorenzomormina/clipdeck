@@ -20,10 +20,12 @@ class ClipListView {
 
     ~ClipListView();
 
-    bool Create(HWND parent, HINSTANCE instance, WindowSettings settings);
+    bool Create(HWND parent, HINSTANCE instance, WindowSettings settings,
+                bool enableValueSearch);
     void Destroy();
 
     void SetWindowSettings(WindowSettings settings);
+    void SetEnableValueSearch(bool enable);
     void Layout(int clientWidth, int clientHeight);
     void SetItems(const std::vector<ClipItem> &items);
     Event HandleCommand(HWND parent, WPARAM wParam, LPARAM lParam);
@@ -69,6 +71,7 @@ class ClipListView {
     const std::vector<ClipItem> *items_ = nullptr;
     std::vector<size_t> visibleItemIndices_;
     WindowSettings windowSettings_;
+    bool enableValueSearch_ = false;
     int uiTextHeight_ = 0;
 };
 

@@ -11,7 +11,7 @@ struct ClipItem {
     std::wstring key;
     std::wstring value;
     bool hidden = false;
-    bool enableSearchValue = false;
+    std::optional<bool> enableValueSearch;
     std::optional<bool> autoClose;
     std::optional<bool> autoPaste;
 
@@ -28,6 +28,7 @@ struct GeneralSettings {
     bool startHidden = true;
     bool autoClose = true;
     bool autoPaste = false;
+    bool enableValueSearch = false;
 };
 
 struct WindowSettings {

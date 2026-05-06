@@ -6,6 +6,7 @@ Hotkey="Ctrl+Shift+Backtick"
 StartHidden=false ; should be true by default on release
 AutoClose=true
 AutoPaste=false ; can be true only if AutoClose is true
+EnableValueSearch=false
 
 [Window]
 Width=400
@@ -33,7 +34,7 @@ AutoPaste=true ; override the general setting; pastes only when effective AutoCl
 Key="signature"
 Value="Best regards,\nJohn Doe"
 Hidden=false
-EnableValueSearch=true # to be implemented
+EnableValueSearch=true
 
 [[Item]]
 Key="secret"

@@ -267,6 +267,10 @@ void ApplyGeneralSetting(AppConfig *config, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             config->generalSettings.autoPaste = parsed;
         }
+    } else if (key == L"EnableValueSearch") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.enableValueSearch = parsed;
+        }
     }
 }
 
@@ -335,7 +339,7 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
         }
     } else if (key == L"EnableValueSearch") {
         if (ParseBoolValue(valueToken, &parsed)) {
-            item->enableSearchValue = parsed;
+            item->enableValueSearch = parsed;
         }
     } else if (key == L"AutoClose") {
         if (ParseBoolValue(valueToken, &parsed)) {

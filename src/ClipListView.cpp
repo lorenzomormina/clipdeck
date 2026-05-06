@@ -11,15 +11,16 @@ namespace {
 wchar_t kConfigurationToolTipText[] = L"Configuration";
 
 bool IsControlKeyDown() { return (GetKeyState(VK_CONTROL) & 0x8000) != 0; }
-}
+} // namespace
 
 ClipListView::~ClipListView() { Destroy(); }
 
 bool ClipListView::Create(HWND parent, HINSTANCE instance,
-                          WindowSettings settings) {
+                          WindowSettings settings, bool enableValueSearch) {
     parent_ = parent;
     windowSettings_ = settings;
     uiTextHeight_ = 0;
+    enableValueSearch_ = enableValueSearch;
 
     listBox_ = CreateWindowExW(
         0, L"LISTBOX", nullptr,
@@ -147,6 +148,10 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
 
 void ClipListView::SetWindowSettings(WindowSettings settings) {
     windowSettings_ = settings;
+}
+
+void ClipListView::SetEnableValueSearch(bool enable) {
+    enableValueSearch_ = enable;
 }
 
 void ClipListView::Layout(int clientWidth, int clientHeight) {
@@ -428,8 +433,16 @@ void ClipListView::ApplyCurrentFilter() {
 
     for (size_t index = 0; index < items_->size(); ++index) {
         const ClipItem &item = (*items_)[index];
-        if (!filter.empty() && item.key.find(filter) == std::wstring::npos) {
-            continue;
+        if (!filter.empty()) {
+            const bool effectiveEnableValueSearch =
+                item.enableValueSearch.value_or(enableValueSearch_);
+            const bool matchesKey = item.key.find(filter) != std::wstring::npos;
+            const bool matchesValue =
+                effectiveEnableValueSearch &&
+                item.value.find(filter) != std::wstring::npos;
+            if (!matchesKey && !matchesValue) {
+                continue;
+            }
         }
 
         visibleItemIndices_.push_back(index);
