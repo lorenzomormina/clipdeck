@@ -34,9 +34,10 @@ Today, in code, it:
 * uses one top-level main window for snippet selection
 * uses one separate top-level settings window for raw config editing
 * copies the selected value to the clipboard
-* optionally hides the main window and auto-pastes into the previously focused window, using per-item `AutoClose` / `AutoPaste` overrides when present
+* optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using per-item `AutoClose` / `AutoPaste` overrides when present
 * supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected value without closing or auto-pasting
 * auto-paste only runs in the effective `AutoClose=true` activation flow
+* supports key-based filtering and optional value-based filtering through `EnableValueSearch`
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
 
@@ -52,19 +53,19 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
 4. After window creation, the app adds a tray icon and registers a global hotkey.
 5. The hotkey is registered from `General.Hotkey` in `config.txt`.
    Invalid hotkey text shows a message box and does not fall back to a hidden default.
-6. Hotkey press captures the currently focused external window, then toggles the main snippet window.
+6. Hotkey press captures a foreground/focused window snapshot, then toggles the main snippet window.
 7. Tray behavior:
 
    * left click opens the main window
    * right click shows a context menu with `Open`, `Config`, `Reload`, `Exit`
-   * `Reload` reparses config, re-registers the global hotkey, reapplies main-window sizing from config, and relayouts existing `ClipListView` controls
+   * `Reload` reparses config, re-registers the global hotkey, updates the settings-window config, reapplies main-window sizing from config, and relayouts existing `ClipListView` controls
    * `Config` still shows a placeholder message box
 8. The main window shows:
 
    * a `LISTBOX`
    * a filter `EDIT`
    * a settings icon button
-9. Typing in the filter box starts a 100 ms debounce timer. Filtering currently matches `ClipItem.key` only, using a case-sensitive substring check.
+9. Typing in the filter box starts a 100 ms debounce timer. Filtering always matches `ClipItem.key`, and also matches `ClipItem.value` when the effective `EnableValueSearch` setting is true. Matching uses a case-sensitive substring check.
 10. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
 11. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
 12. Activation copies the selected value to the clipboard.
@@ -153,9 +154,9 @@ The application currently has two concrete top-level windows:
 
 **Current limits**
 
-* layout uses hardcoded constants, but relayouts on `WM_SIZE`
-* `Save` and `Cancel` icon buttons are anchored at the top-left; the editor sits below them and fills the remaining client area
-* size is driven by the separate `[ConfigWindow]` section (`configWindowSettings`)
+* layout uses hardcoded constants, and `WM_SIZE` calls the layout routine
+* `Save` and `Cancel` icon buttons are positioned from the top-left using `[ConfigWindow].Margin`; the editor sits below them and fills the remaining client area with the same margin inset
+* size is driven by the separate `[ConfigWindow]` section (`configWindowSettings`), and the current layout routine reapplies that configured size
 * there is no config validation or parse error feedback before reload
 
 ---
@@ -175,10 +176,10 @@ The application currently has two concrete top-level windows:
 * optional auto-paste attempt back to the previously focused window, with per-item `AutoPaste` overrides
 * raw config text editor with save/discard confirmation
 * config reload after settings save or tray reload
+* value search is implemented through effective `EnableValueSearch`, with per-item overrides falling back to `[General]`
 
 ### Partial / limited
 
-* `ClipItem.EnableValueSearch` is parsed and stored, but filtering does not use it
 * `Window` settings affect main-window size and `ClipListView` layout; user-driven main-window resizing is temporary and not persisted back to `config.txt`
 * settings editing is functional but very basic
 * config save path only reports file-write failure; malformed config content is not validated for the user
@@ -186,7 +187,6 @@ The application currently has two concrete top-level windows:
 
 ### Planned / not implemented
 
-* value-based search using `EnableValueSearch`
 * tray `Config` action opening the real settings window
 * stronger config validation and user-facing parse errors
 
@@ -207,6 +207,7 @@ Hotkey="Ctrl+Shift+Space"
 StartHidden=false
 AutoClose=true
 AutoPaste=false
+EnableValueSearch=false
 
 [Window]
 Width=400
@@ -243,6 +244,7 @@ AutoPaste=true
 * `StartHidden`: used
 * `AutoClose`: used as the global default for activation close behavior
 * `AutoPaste`: used as the global default for paste behavior, but paste still only runs inside the effective `AutoClose=true` activation branch
+* `EnableValueSearch`: used as the global default for value-based filtering
 * `Hotkey`: used for global hotkey registration
 
 #### `[Window]`
@@ -253,18 +255,18 @@ AutoPaste=true
 #### `[ConfigWindow]`
 
 * `Width`, `Height`: used for settings-window creation and reload sizing
-* `Margin`: used by settings layout
+* `Margin`: used by settings layout for top/left button placement, spacing between the buttons, editor inset, and spacing below the buttons
 
 #### `[[Item]]`
 
 * `Key`: used for display and filtering
-* `Value`: used for clipboard/paste output
+* `Value`: used for clipboard/paste output and, when effective `EnableValueSearch=true`, filtering
 * `Hidden`: used only to mask the visible display text
-* `EnableValueSearch`: parsed only
+* `EnableValueSearch`: optional per-item override for `General.EnableValueSearch`
 * `AutoClose`: optional per-item override for `General.AutoClose`
 * `AutoPaste`: optional per-item override for `General.AutoPaste`
 
-Missing item-level `AutoClose` / `AutoPaste` fields fall back independently to `[General]`.
+Missing item-level `EnableValueSearch`, `AutoClose`, and `AutoPaste` fields fall back independently to `[General]`.
 On activation, the selected value is always copied first. The effective `AutoClose` value then decides whether the main window hides. The effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
 
 ### Important note about config editing
@@ -296,7 +298,7 @@ What is still rough:
 
 * settings UX and layout
 * config error handling
-* honoring all declared config fields
+* config validation and user-facing error reporting
 * resize / relayout behavior
 
 ---
@@ -422,7 +424,7 @@ If you introduce a new module, it should remove a concrete overload from an exis
 
 Important current state includes:
 
-* captured external focus in `lastFocus_`
+* captured foreground/focused window snapshot in `lastFocus_`
 * full config model in `config_`
 * visible filtered item index mapping in `ClipListView`
 * settings editor state in `SettingsWindow`:
@@ -481,22 +483,21 @@ Behavior expectations future edits should preserve unless the task explicitly ch
 
 Only issues justified by the current code are listed here.
 
-* `EnableValueSearch` is misleading today: it is parsed but never used by filtering.
 * tray menu `Config` exists but only shows `Config option not implemented yet.`
-* filtering is key-only and case-sensitive
+* filtering is case-sensitive
 * hidden items are still selectable; only their displayed value is masked
 * settings save writes raw text without validation; malformed config can silently reload as partial defaults
 * main-window resize is handled locally for `ClipListView`, but resized dimensions are still temporary and never persisted to `config.txt`
-* settings-window resize is handled locally, resized dimensions are still temporary and never persisted to `config.txt`
+* settings-window `WM_SIZE` calls the layout routine, but that routine reapplies `[ConfigWindow]` configured size, so user-driven resizing is not currently preserved or persisted to `config.txt`
 * file I/O uses explicit UTF-8 write output with UTF-8/ACP read fallback, but there is still no user-facing encoding validation
 
 ---
 
 ## 14) Near-term priorities
 
-1. Decide the intended search semantics, then implement them locally in `ClipListView` and `AppConfig` without broad UI changes.
-2. Improve settings robustness: validation/error reporting before reload, and clarify desired raw-text editing behavior.
-3. Replace or remove the tray `Config` placeholder entry.
+1. Improve settings robustness: validation/error reporting before reload, and clarify desired raw-text editing behavior.
+2. Replace or remove the tray `Config` placeholder entry.
+3. Clarify or improve resize behavior for the settings window.
 
 ---
 
@@ -504,8 +505,6 @@ Only issues justified by the current code are listed here.
 
 These are directionally consistent with the current codebase, not commitments.
 
-* configurable hotkey support based on parsed config
-* value-aware search
 * better config validation and error messages
 * incremental cleanup of settings UI layout
 
