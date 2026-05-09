@@ -37,7 +37,7 @@ Today, in code, it:
 * optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using per-item `AutoClose` / `AutoPaste` overrides when present
 * supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected value without closing or auto-pasting
 * auto-paste only runs in the effective `AutoClose=true` activation flow
-* supports key-based filtering and optional value-based filtering through `EnableValueSearch`
+* supports key-based filtering and optional value-based filtering through `EnableValueSearch`, with separate key/value case-sensitivity controls
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
 
@@ -65,7 +65,7 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
    * a `LISTBOX`
    * a filter `EDIT`
    * a settings icon button
-9. Typing in the filter box starts a 100 ms debounce timer. Filtering always matches `ClipItem.key`, and also matches `ClipItem.value` when the effective `EnableValueSearch` setting is true. Matching uses a case-sensitive substring check.
+9. Typing in the filter box starts a 100 ms debounce timer. Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `EnableValueSearch` setting is true. Key matching uses the effective `CaseSensitiveSearchKey` setting, and value matching uses the effective `CaseSensitiveSearchValue` setting. Each effective search setting is computed independently from the item first, falling back to `[General]` when the item does not override it.
 10. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
 11. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
 12. Activation copies the selected value to the clipboard.
@@ -120,6 +120,7 @@ The application currently has two concrete top-level windows:
 * pressing Up/Down while the filter textbox is focused moves the listbox selection without moving focus out of the filter textbox
 * printable text typed while the list box has focus is redirected into the filter textbox
 * filtering is debounced
+* filtering uses effective item-level search settings with `[General]` fallbacks
 * after filtering, the selected underlying item is preserved if it remains visible; otherwise the first visible result is selected when any results are present
 * activation is by double click or `Enter` in the list box
 * holding `Ctrl` during double click or `Enter` performs copy-only activation: copy to clipboard without closing or auto-pasting
@@ -178,6 +179,7 @@ The application currently has two concrete top-level windows:
 * raw config text editor with save/discard confirmation
 * config reload after settings save or tray reload
 * value search is implemented through effective `EnableValueSearch`, with per-item overrides falling back to `[General]`
+* key/value search case sensitivity is configurable through effective `CaseSensitiveSearchKey` and `CaseSensitiveSearchValue`
 
 ### Partial / limited
 
@@ -209,6 +211,8 @@ StartHidden=false
 AutoClose=true
 AutoPaste=false
 EnableValueSearch=false
+CaseSensitiveSearchKey=false
+CaseSensitiveSearchValue=true
 HideOnBlur=true
 KeepVisibleWhileConfiguring=true
 
@@ -228,6 +232,8 @@ Key="firma"
 Value="Cordiali saluti,\nMario Rossi"
 Hidden=false
 EnableValueSearch=true
+CaseSensitiveSearchKey=false
+CaseSensitiveSearchValue=true
 AutoClose=false
 AutoPaste=true
 ```
@@ -248,6 +254,8 @@ AutoPaste=true
 * `AutoClose`: used as the global default for activation close behavior
 * `AutoPaste`: used as the global default for paste behavior, but paste still only runs inside the effective `AutoClose=true` activation branch
 * `EnableValueSearch`: used as the global default for value-based filtering
+* `CaseSensitiveSearchKey`: used as the global default for key filter matching case sensitivity
+* `CaseSensitiveSearchValue`: used as the global default for value filter matching case sensitivity
 * `HideOnBlur`: used to decide whether the main window hides when it loses focus
 * `KeepVisibleWhileConfiguring`: used when opening the settings window; if true, the main window remains visible while settings is open
 * `Hotkey`: used for global hotkey registration
@@ -279,10 +287,13 @@ Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding
 * `Value`: used for clipboard/paste output and, when effective `EnableValueSearch=true`, filtering
 * `Hidden`: used only to mask the visible display text
 * `EnableValueSearch`: optional per-item override for `General.EnableValueSearch`
+* `CaseSensitiveSearchKey`: optional per-item override for `General.CaseSensitiveSearchKey`
+* `CaseSensitiveSearchValue`: optional per-item override for `General.CaseSensitiveSearchValue`
 * `AutoClose`: optional per-item override for `General.AutoClose`
 * `AutoPaste`: optional per-item override for `General.AutoPaste`
 
-Missing item-level `EnableValueSearch`, `AutoClose`, and `AutoPaste` fields fall back independently to `[General]`.
+Missing item-level `EnableValueSearch`, `CaseSensitiveSearchKey`, `CaseSensitiveSearchValue`, `AutoClose`, and `AutoPaste` fields fall back independently to `[General]`.
+Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `EnableValueSearch` setting is true. Key matching uses the effective `CaseSensitiveSearchKey` setting, and value matching uses the effective `CaseSensitiveSearchValue` setting. Each effective search setting is computed independently from the item first, falling back to `[General]` when the item does not override it.
 On activation, the selected value is always copied first. The effective `AutoClose` value then decides whether the main window hides. The effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
 
 ### Important note about config editing
@@ -501,8 +512,6 @@ Behavior expectations future edits should preserve unless the task explicitly ch
 Only issues justified by the current code are listed here.
 
 * tray menu `Config` exists but only shows `Config option not implemented yet.`
-* filtering is case-sensitive
-* hidden items are still selectable; only their displayed value is masked
 * settings save writes raw text without validation; malformed config can silently reload as partial defaults
 * main-window resize is handled locally for `ClipListView`, but resized dimensions are still temporary and never persisted to `config.txt`
 * settings-window `WM_SIZE` calls the layout routine, but that routine reapplies `[ConfigWindow]` configured size, so user-driven resizing is not currently preserved or persisted to `config.txt`
