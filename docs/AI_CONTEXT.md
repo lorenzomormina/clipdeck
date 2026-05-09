@@ -78,7 +78,7 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
     If it already exists, the app shows it and brings it to the foreground.
 18. After opening settings from the main window, the main window hides only when `HideOnBlur=true` and `KeepVisibleWhileConfiguring=false`.
 19. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
-20. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
+20. `Save` or `Ctrl+S` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
 21. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
 
    * if not dirty, hide the settings window

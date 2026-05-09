@@ -198,8 +198,7 @@ void SettingsWindow::Destroy() {
 }
 
 bool SettingsWindow::PreTranslateMessage(const MSG &message) {
-    if (message.message != WM_KEYDOWN || message.wParam != VK_ESCAPE ||
-        !hwnd_ || !IsWindow(hwnd_)) {
+    if (message.message != WM_KEYDOWN || !hwnd_ || !IsWindow(hwnd_)) {
         return false;
     }
 
@@ -207,8 +206,17 @@ bool SettingsWindow::PreTranslateMessage(const MSG &message) {
         return false;
     }
 
-    TryCloseOrHide();
-    return true;
+    if (message.wParam == VK_ESCAPE) {
+        TryCloseOrHide();
+        return true;
+    }
+
+    if (message.wParam == 'S' && (GetKeyState(VK_CONTROL) & 0x8000) != 0) {
+        SaveText();
+        return true;
+    }
+
+    return false;
 }
 
 bool SettingsWindow::RegisterWindowClass() const {
