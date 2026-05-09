@@ -271,6 +271,10 @@ void ApplyGeneralSetting(AppConfig *config, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             config->generalSettings.enableValueSearch = parsed;
         }
+    } else if (key == L"HideOnBlur") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.hideOnBlur = parsed;
+        }
     }
 }
 

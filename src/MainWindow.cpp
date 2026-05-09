@@ -140,7 +140,7 @@ void MainWindow::OpenSettingsWindow() {
         return;
     }
 
-    if (IsWindowVisible(hwnd_)) {
+    if (IsWindowVisible(hwnd_) && config_.generalSettings.hideOnBlur) {
         HideWindow();
     }
 }
@@ -159,7 +159,8 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         clipListView_.Layout(LOWORD(lParam), HIWORD(lParam));
         break;
     case WM_ACTIVATE:
-        if (wParam == WA_INACTIVE && IsWindowVisible(hwnd_)) {
+        if (wParam == WA_INACTIVE && IsWindowVisible(hwnd_) &&
+            config_.generalSettings.hideOnBlur) {
             HideWindow();
             return 0;
         }

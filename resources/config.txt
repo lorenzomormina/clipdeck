@@ -7,6 +7,7 @@ StartHidden=false ; should be true by default on release
 AutoClose=true
 AutoPaste=false ; can be true only if AutoClose is true
 EnableValueSearch=false
+HideOnBlur=true
 
 [Window]
 Width=400
