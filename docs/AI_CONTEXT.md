@@ -76,7 +76,7 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
 17. Clicking the settings button opens a separate top-level settings window.
     If it does not exist yet, the app creates it first.
     If it already exists, the app shows it and brings it to the foreground.
-18. After opening settings from the main window, the main window hides.
+18. After opening settings from the main window, the main window hides only when `HideOnBlur=true` and `KeepVisibleWhileConfiguring=false`.
 19. When shown from a hidden state, the settings window reloads the raw config file text into a multiline `EDIT` control.
 20. `Save` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
 21. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
@@ -86,7 +86,7 @@ This section reflects the current code in `main.cpp`, `MainWindow.*`, `SettingsW
    * `Yes` saves, reloads config, then hides the settings window
    * `No` discards editor changes, then hides the settings window
    * `Cancel` keeps the settings window open
-22. The main window auto-hides on focus loss while visible.
+22. The main window auto-hides on focus loss only when `HideOnBlur=true`. When the focus loss is caused by opening the settings window, `KeepVisibleWhileConfiguring=true` keeps the main window visible.
 23. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
 
 ---
@@ -126,7 +126,8 @@ The application currently has two concrete top-level windows:
 * selected item value is copied to clipboard
 * hidden items are still present in the list, but their displayed value is masked as `*****`
 * the window uses tool-window style and is hidden from the taskbar
-* losing focus hides the window
+* losing focus hides the window only when the effective `HideOnBlur` setting is true
+* when opening settings, `KeepVisibleWhileConfiguring=true` prevents the main window from hiding even if `HideOnBlur=true`
 
 ---
 
@@ -208,6 +209,8 @@ StartHidden=false
 AutoClose=true
 AutoPaste=false
 EnableValueSearch=false
+HideOnBlur=true
+KeepVisibleWhileConfiguring=true
 
 [Window]
 Width=400
@@ -245,7 +248,20 @@ AutoPaste=true
 * `AutoClose`: used as the global default for activation close behavior
 * `AutoPaste`: used as the global default for paste behavior, but paste still only runs inside the effective `AutoClose=true` activation branch
 * `EnableValueSearch`: used as the global default for value-based filtering
+* `HideOnBlur`: used to decide whether the main window hides when it loses focus
+* `KeepVisibleWhileConfiguring`: used when opening the settings window; if true, the main window remains visible while settings is open
 * `Hotkey`: used for global hotkey registration
+
+`HideOnBlur` and `KeepVisibleWhileConfiguring` work together only for the settings-window flow:
+
+| HideOnBlur | KeepVisibleWhileConfiguring | Main window hides when opening settings |
+|---|---|---|
+| false | false | false |
+| false | true | false |
+| true | false | true |
+| true | true | false |
+
+Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding by itself.
 
 #### `[Window]`
 
@@ -437,7 +453,8 @@ Behavior expectations future edits should preserve unless the task explicitly ch
 
 * hotkey toggles the main snippet window
 * tray left click opens the main window
-* main window auto-hides on focus loss
+* main window auto-hides on focus loss only when `HideOnBlur=true`
+* opening settings keeps or hides the main window according to `HideOnBlur` and `KeepVisibleWhileConfiguring`
 * settings dirty-check blocks accidental leave when user chooses `Cancel`
 * settings `Save` writes raw text first, then reloads config
 * item activation always copies first; paste is additional behavior
