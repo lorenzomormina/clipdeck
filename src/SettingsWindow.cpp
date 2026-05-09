@@ -1,5 +1,5 @@
 #include "SettingsWindow.h"
-#include "../resources/resource.h"
+#include "resource.h"
 
 #include <algorithm>
 #include <commctrl.h>
@@ -155,8 +155,8 @@ SettingsWindow::SettingsWindow(HINSTANCE instance) : instance_(instance) {}
 SettingsWindow::~SettingsWindow() { Destroy(); }
 
 void SettingsWindow::SetConfig(const AppConfig &config) {
-    configPath_ = config.configPath;
-    configWindowSettings_ = config.configWindowSettings;
+    settingsPath_ = config.settingsPath;
+    settingsWindowSettings_ = config.settingsWindowSettings;
     // ApplyWindowSize();
     LayoutControls();
 }
@@ -240,8 +240,8 @@ bool SettingsWindow::CreateWindowInstance() {
     hwnd_ = CreateWindowExW(
         0, kWindowClassName, kWindowTitle,
         WS_OVERLAPPED | WS_CAPTION | WS_SYSMENU | WS_SIZEBOX, CW_USEDEFAULT,
-        CW_USEDEFAULT, configWindowSettings_.width,
-        configWindowSettings_.height, nullptr, nullptr, instance_, this);
+        CW_USEDEFAULT, settingsWindowSettings_.width,
+        settingsWindowSettings_.height, nullptr, nullptr, instance_, this);
     return hwnd_ != nullptr;
 }
 
@@ -386,8 +386,8 @@ void SettingsWindow::LayoutControls() const {
         return;
     }
 
-    SetWindowPos(hwnd_, nullptr, 0, 0, configWindowSettings_.width,
-                 configWindowSettings_.height,
+    SetWindowPos(hwnd_, nullptr, 0, 0, settingsWindowSettings_.width,
+                 settingsWindowSettings_.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
 
     RECT clientRect{};
@@ -395,7 +395,7 @@ void SettingsWindow::LayoutControls() const {
         return;
     }
 
-    const int margin = configWindowSettings_.margin;
+    const int margin = settingsWindowSettings_.margin;
     const int clientWidth = clientRect.right - clientRect.left;
     const int clientHeight = clientRect.bottom - clientRect.top;
     const int buttonsTop = margin;
@@ -412,7 +412,7 @@ void SettingsWindow::LayoutControls() const {
 
 void SettingsWindow::LoadTextFromDisk() {
     settingsState_.originalText =
-        NormalizeLineEndingsForStorage(ReadTextFile(configPath_));
+        NormalizeLineEndingsForStorage(ReadTextFile(settingsPath_));
     settingsState_.isDirty = false;
     SetEditorText(settingsState_.originalText);
 }
@@ -459,8 +459,8 @@ bool SettingsWindow::SaveText() {
     }
 
     const std::wstring currentText = ReadEditorText();
-    if (!WriteTextFile(configPath_, currentText)) {
-        MessageBoxW(hwnd_, L"Could not save configuration file.", L"Error",
+    if (!WriteTextFile(settingsPath_, currentText)) {
+        MessageBoxW(hwnd_, L"Could not save settings file.", L"Error",
                     MB_ICONERROR);
         return false;
     }

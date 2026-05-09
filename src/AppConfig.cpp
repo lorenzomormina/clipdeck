@@ -12,14 +12,17 @@ namespace ClipDeck {
 
 namespace {
 
-constexpr wchar_t kConfigFileName[] = L"config.txt";
+constexpr wchar_t kConfigFileName[] = L"settings.txt";
 constexpr wchar_t kIconFileName[] = L"icon.ico";
 
 enum class ParseSection {
     None,
-    General,
-    Window,
-    ConfigWindow,
+    App,
+    Hotkey,
+    MainWindow,
+    SettingsWindow,
+    Activation,
+    Search,
     Item,
 };
 
@@ -134,7 +137,7 @@ bool ReadTextFileWithEncodingFallback(const std::filesystem::path &path,
         return true;
     }
 
-    // Fallback for legacy non-UTF-8 config files.
+    // Fallback for legacy non-UTF-8 settings files.
     *text = DecodeBytesToWide(bytes, CP_ACP, 0);
     return true;
 }
@@ -178,7 +181,7 @@ bool ParseKeyValue(const std::wstring &line, std::wstring *key,
 
     *key = TrimCopy(line.substr(0, separator));
     *value = TrimCopy(line.substr(separator + 1));
-    return !key->empty() && !value->empty();
+    return !key->empty();
 }
 
 bool ParseQuotedString(const std::wstring &valueToken, std::wstring *parsed) {
@@ -244,88 +247,103 @@ bool ParseIntValue(const std::wstring &valueToken, int *parsed) {
     }
 }
 
-void ApplyGeneralSetting(AppConfig *config, const std::wstring &key,
-                         const std::wstring &valueToken) {
-    if (key == L"Hotkey") {
-        std::wstring parsed;
-        if (ParseQuotedString(valueToken, &parsed)) {
-            config->generalSettings.hotkeyText = parsed;
-        }
-        return;
-    }
-
+void ApplyAppSetting(AppConfig *config, const std::wstring &key,
+                     const std::wstring &valueToken) {
     bool parsed = false;
     if (key == L"StartHidden") {
         if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.startHidden = parsed;
+            config->appSettings.startHidden = parsed;
         }
-    } else if (key == L"AutoClose") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.autoClose = parsed;
+    }
+}
+
+void ApplyHotkeySetting(AppConfig *config, const std::wstring &key,
+                        const std::wstring &valueToken) {
+    if (key == L"Open") {
+        std::wstring parsed;
+        if (ParseQuotedString(valueToken, &parsed)) {
+            config->hotkeySettings.open = parsed;
         }
-    } else if (key == L"AutoPaste") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.autoPaste = parsed;
+    }
+}
+
+void ApplyMainWindowSetting(AppConfig *config, const std::wstring &key,
+                            const std::wstring &valueToken) {
+    bool parsed = false;
+    int parsedInt = 0;
+    if (key == L"Width") {
+        if (ParseIntValue(valueToken, &parsedInt)) {
+            config->mainWindowSettings.width = parsedInt;
         }
-    } else if (key == L"EnableValueSearch") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.enableValueSearch = parsed;
+    } else if (key == L"Height") {
+        if (ParseIntValue(valueToken, &parsedInt)) {
+            config->mainWindowSettings.height = parsedInt;
+        }
+    } else if (key == L"Margin") {
+        if (ParseIntValue(valueToken, &parsedInt)) {
+            config->mainWindowSettings.margin = parsedInt;
+        }
+    } else if (key == L"TextBoxMargin") {
+        if (ParseIntValue(valueToken, &parsedInt)) {
+            config->mainWindowSettings.textBoxMargin = parsedInt;
         }
     } else if (key == L"HideOnBlur") {
         if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.hideOnBlur = parsed;
+            config->mainWindowSettings.hideOnBlur = parsed;
         }
     } else if (key == L"KeepVisibleWhileConfiguring") {
         if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.keepVisibleWhileConfiguring = parsed;
-        }
-    } else if (key == L"CaseSensitiveSearchKey") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.caseSensitiveSearchKey = parsed;
-        }
-    } else if (key == L"CaseSensitiveSearchValue") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            config->generalSettings.caseSensitiveSearchValue = parsed;
+            config->mainWindowSettings.keepVisibleWhileConfiguring = parsed;
         }
     }
 }
 
-void ApplyWindowSetting(AppConfig *config, const std::wstring &key,
+void ApplySettingsWindowSetting(AppConfig *config, const std::wstring &key,
+                                const std::wstring &valueToken) {
+    int parsed = 0;
+    if (key == L"Width") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->settingsWindowSettings.width = parsed;
+        }
+    } else if (key == L"Height") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->settingsWindowSettings.height = parsed;
+        }
+    } else if (key == L"Margin") {
+        if (ParseIntValue(valueToken, &parsed)) {
+            config->settingsWindowSettings.margin = parsed;
+        }
+    }
+}
+
+void ApplyActivationSetting(AppConfig *config, const std::wstring &key,
+                            const std::wstring &valueToken) {
+    bool parsed = false;
+    if (key == L"AutoClose") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->activationSettings.autoClose = parsed;
+        }
+    } else if (key == L"AutoPaste") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->activationSettings.autoPaste = parsed;
+        }
+    }
+}
+
+void ApplySearchSetting(AppConfig *config, const std::wstring &key,
                         const std::wstring &valueToken) {
-    int parsed = 0;
-    if (key == L"Width") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->windowSettings.width = parsed;
+    bool parsed = false;
+    if (key == L"SearchValues") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->searchSettings.searchValues = parsed;
         }
-    } else if (key == L"Height") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->windowSettings.height = parsed;
+    } else if (key == L"CaseSensitiveKeys") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->searchSettings.caseSensitiveKeys = parsed;
         }
-    } else if (key == L"Margin") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->windowSettings.margin = parsed;
-        }
-    } else if (key == L"TextBoxMargin") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->windowSettings.textBoxMargin = parsed;
-        }
-    }
-}
-
-void ApplyConfigWindowSetting(AppConfig *config, const std::wstring &key,
-                              const std::wstring &valueToken) {
-    int parsed = 0;
-    if (key == L"Width") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->configWindowSettings.width = parsed;
-        }
-    } else if (key == L"Height") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->configWindowSettings.height = parsed;
-        }
-    } else if (key == L"Margin") {
-        if (ParseIntValue(valueToken, &parsed)) {
-            config->configWindowSettings.margin = parsed;
+    } else if (key == L"CaseSensitiveValues") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->searchSettings.caseSensitiveValues = parsed;
         }
     }
 }
@@ -353,33 +371,43 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             item->hidden = parsed;
         }
-    } else if (key == L"EnableValueSearch") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            item->enableValueSearch = parsed;
+    } else if (key == L"Search.SearchValues") {
+        if (valueToken.empty()) {
+            item->searchValues.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
+            item->searchValues = parsed;
         }
-    } else if (key == L"CaseSensitiveSearchKey") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            item->caseSensitiveSearchKey = parsed;
+    } else if (key == L"Search.CaseSensitiveKeys") {
+        if (valueToken.empty()) {
+            item->caseSensitiveKeys.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
+            item->caseSensitiveKeys = parsed;
         }
-    } else if (key == L"CaseSensitiveSearchValue") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            item->caseSensitiveSearchValue = parsed;
+    } else if (key == L"Search.CaseSensitiveValues") {
+        if (valueToken.empty()) {
+            item->caseSensitiveValues.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
+            item->caseSensitiveValues = parsed;
         }
-    } else if (key == L"AutoClose") {
-        if (ParseBoolValue(valueToken, &parsed)) {
+    } else if (key == L"Activation.AutoClose") {
+        if (valueToken.empty()) {
+            item->autoClose.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
             item->autoClose = parsed;
         }
-    } else if (key == L"AutoPaste") {
-        if (ParseBoolValue(valueToken, &parsed)) {
+    } else if (key == L"Activation.AutoPaste") {
+        if (valueToken.empty()) {
+            item->autoPaste.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
             item->autoPaste = parsed;
         }
     }
 }
 
-void ParseConfigFile(const std::filesystem::path &configPath,
+void ParseConfigFile(const std::filesystem::path &settingsPath,
                      AppConfig *config) {
     std::wstring configText;
-    if (!ReadTextFileWithEncodingFallback(configPath, &configText)) {
+    if (!ReadTextFileWithEncodingFallback(settingsPath, &configText)) {
         return;
     }
 
@@ -401,14 +429,23 @@ void ParseConfigFile(const std::filesystem::path &configPath,
         }
 
         if (line.front() == L'[' && line.back() == L']') {
-            if (line == L"[General]") {
-                currentSection = ParseSection::General;
+            if (line == L"[App]") {
+                currentSection = ParseSection::App;
                 currentItem = nullptr;
-            } else if (line == L"[Window]") {
-                currentSection = ParseSection::Window;
+            } else if (line == L"[Hotkey]") {
+                currentSection = ParseSection::Hotkey;
                 currentItem = nullptr;
-            } else if (line == L"[ConfigWindow]") {
-                currentSection = ParseSection::ConfigWindow;
+            } else if (line == L"[MainWindow]") {
+                currentSection = ParseSection::MainWindow;
+                currentItem = nullptr;
+            } else if (line == L"[SettingsWindow]") {
+                currentSection = ParseSection::SettingsWindow;
+                currentItem = nullptr;
+            } else if (line == L"[Activation]") {
+                currentSection = ParseSection::Activation;
+                currentItem = nullptr;
+            } else if (line == L"[Search]") {
+                currentSection = ParseSection::Search;
                 currentItem = nullptr;
             } else if (line == L"[[Item]]") {
                 currentSection = ParseSection::Item;
@@ -428,14 +465,23 @@ void ParseConfigFile(const std::filesystem::path &configPath,
         }
 
         switch (currentSection) {
-        case ParseSection::General:
-            ApplyGeneralSetting(config, key, valueToken);
+        case ParseSection::App:
+            ApplyAppSetting(config, key, valueToken);
             break;
-        case ParseSection::Window:
-            ApplyWindowSetting(config, key, valueToken);
+        case ParseSection::Hotkey:
+            ApplyHotkeySetting(config, key, valueToken);
             break;
-        case ParseSection::ConfigWindow:
-            ApplyConfigWindowSetting(config, key, valueToken);
+        case ParseSection::MainWindow:
+            ApplyMainWindowSetting(config, key, valueToken);
+            break;
+        case ParseSection::SettingsWindow:
+            ApplySettingsWindowSetting(config, key, valueToken);
+            break;
+        case ParseSection::Activation:
+            ApplyActivationSetting(config, key, valueToken);
+            break;
+        case ParseSection::Search:
+            ApplySearchSetting(config, key, valueToken);
             break;
         case ParseSection::Item:
             if (currentItem != nullptr) {
@@ -453,10 +499,9 @@ void ParseConfigFile(const std::filesystem::path &configPath,
 AppConfig LoadAppConfig() {
     AppConfig config;
     config.executableDirectory = GetExecutableDirectory();
-    config.configPath = config.executableDirectory / kConfigFileName;
-    config.iconPath = config.executableDirectory / "icons" / kIconFileName;
+    config.settingsPath = config.executableDirectory / kConfigFileName;
 
-    ParseConfigFile(config.configPath, &config);
+    ParseConfigFile(config.settingsPath, &config);
 
     return config;
 }

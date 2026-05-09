@@ -8,9 +8,10 @@ set(CMAKE_CXX_EXTENSIONS OFF)
 add_executable(
     ClipDeck
     WIN32
-    resources/resource.rc
+    winres/resource.rc
     src/main.cpp
     src/AppConfig.cpp
+    src/ClipDeckApp.cpp
     src/ClipboardUtils.cpp
     src/ClipListView.cpp
     src/GlobalHotkey.cpp
@@ -18,7 +19,6 @@ add_executable(
     src/MainWindow.cpp
     src/SettingsWindow.cpp
     src/TrayIcon.cpp
-    src/utils.h
 )
 
 target_compile_definitions(
@@ -35,14 +35,15 @@ target_link_libraries(
         comctl32
 )
 
-add_custom_command(TARGET ClipDeck POST_BUILD
-    COMMAND ${CMAKE_COMMAND} -E copy_directory
-            ${CMAKE_CURRENT_SOURCE_DIR}/resources/icons
-            $<TARGET_FILE_DIR:ClipDeck>/icons
+target_include_directories(
+    ClipDeck
+    PRIVATE
+        ${CMAKE_CURRENT_SOURCE_DIR}/src
+        ${CMAKE_CURRENT_SOURCE_DIR}/winres
 )
 
 add_custom_command(TARGET ClipDeck POST_BUILD
     COMMAND ${CMAKE_COMMAND} -E copy
-            ${CMAKE_CURRENT_SOURCE_DIR}/resources/config.txt
-            $<TARGET_FILE_DIR:ClipDeck>/config.txt
+            ${CMAKE_CURRENT_SOURCE_DIR}/resources/settings.txt
+            $<TARGET_FILE_DIR:ClipDeck>/settings.txt
 )

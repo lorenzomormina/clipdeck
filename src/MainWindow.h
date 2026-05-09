@@ -4,8 +4,9 @@
 #include "ClipListView.h"
 #include "ClipboardUtils.h"
 #include "GlobalHotkey.h"
-#include "SettingsWindow.h"
 #include "TrayIcon.h"
+
+#include <functional>
 
 #include <windows.h>
 
@@ -13,9 +14,14 @@ namespace ClipDeck {
 
 class MainWindow {
   public:
-    MainWindow(HINSTANCE instance, AppConfig config);
+    MainWindow(HINSTANCE instance, const AppConfig &config);
 
-    int Run(int nCmdShow);
+    bool Create(int nCmdShow);
+    bool PreTranslateMessage(const MSG &message);
+    void ApplyConfig();
+    void SetOpenSettingsCallback(std::function<bool()> callback);
+    void SetReloadConfigCallback(std::function<void()> callback);
+    void SetSettingsActiveCallback(std::function<bool()> callback);
 
   private:
     static constexpr wchar_t kWindowClassName[] = L"ClipDeckMainWindow";
@@ -27,7 +33,6 @@ class MainWindow {
     bool RegisterWindowClass() const;
     bool CreateMainWindow();
     bool RegisterGlobalHotkey();
-    void ReloadConfig();
     void OpenSettingsWindow();
 
     LRESULT HandleMessage(UINT message, WPARAM wParam, LPARAM lParam);
@@ -50,13 +55,15 @@ class MainWindow {
     void HideWindow();
 
     HINSTANCE instance_;
-    AppConfig config_;
+    const AppConfig &config_;
     HWND hwnd_ = nullptr;
     TrayIcon trayIcon_;
     GlobalHotkey hotkey_;
     ClipListView clipListView_;
-    SettingsWindow settingsWindow_;
     FocusSnapshot lastFocus_;
+    std::function<bool()> openSettingsCallback_;
+    std::function<void()> reloadConfigCallback_;
+    std::function<bool()> isSettingsActiveCallback_;
 };
 
 } // namespace ClipDeck

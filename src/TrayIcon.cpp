@@ -1,21 +1,23 @@
 #include "TrayIcon.h"
 
+#include "resource.h"
 #include <shellapi.h>
 
 namespace ClipDeck {
 
 TrayIcon::~TrayIcon() { Remove(); }
 
-bool TrayIcon::Add(HWND owner, UINT iconId, UINT callbackMessage,
-                   const std::filesystem::path &iconPath,
+bool TrayIcon::Add(HWND owner, HINSTANCE instance, UINT callbackMessage,
                    const wchar_t *toolTip) {
     Remove();
 
+    const int iconSize = 16;
+
     owner_ = owner;
-    iconId_ = iconId;
-    icon_ =
-        static_cast<HICON>(LoadImageW(nullptr, iconPath.c_str(), IMAGE_ICON, 0,
-                                      0, LR_LOADFROMFILE | LR_DEFAULTSIZE));
+    iconId_ = IDI_ICON1;
+    icon_ = static_cast<HICON>(LoadImageW(instance, MAKEINTRESOURCEW(iconId_),
+                                          IMAGE_ICON, iconSize, iconSize,
+                                          LR_DEFAULTCOLOR));
     if (!icon_) {
         return false;
     }

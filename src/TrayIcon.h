@@ -19,8 +19,8 @@ class TrayIcon {
 
     ~TrayIcon();
 
-    bool Add(HWND owner, UINT iconId, UINT callbackMessage,
-             const std::filesystem::path &iconPath, const wchar_t *toolTip);
+    bool Add(HWND owner, HINSTANCE instance, UINT callbackMessage,
+             const wchar_t *toolTip);
     void Remove();
 
     CallbackAction TranslateCallback(LPARAM lParam) const;

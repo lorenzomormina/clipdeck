@@ -61,8 +61,8 @@ class SettingsWindow {
                                             WPARAM wParam, LPARAM lParam);
 
     HINSTANCE instance_;
-    std::filesystem::path configPath_;
-    ConfigWindowSettings configWindowSettings_;
+    std::filesystem::path settingsPath_;
+    SettingsWindowSettings settingsWindowSettings_;
     std::function<void()> onConfigSaved_;
 
     HWND hwnd_ = nullptr;

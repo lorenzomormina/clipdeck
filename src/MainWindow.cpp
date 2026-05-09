@@ -6,47 +6,68 @@
 
 namespace ClipDeck {
 
-MainWindow::MainWindow(HINSTANCE instance, AppConfig config)
-    : instance_(instance), config_(std::move(config)),
-      settingsWindow_(instance) {
-    settingsWindow_.SetConfig(config_);
-    settingsWindow_.SetConfigSavedCallback([this]() { ReloadConfig(); });
-}
+MainWindow::MainWindow(HINSTANCE instance, const AppConfig &config)
+    : instance_(instance), config_(config) {}
 
-int MainWindow::Run(int nCmdShow) {
+bool MainWindow::Create(int nCmdShow) {
     (void)nCmdShow;
 
     if (!CreateMainWindow()) {
-        return 0;
+        return false;
     }
 
     UpdateWindow(hwnd_);
 
-    if (!trayIcon_.Add(hwnd_, kTrayIconId, kTrayCallbackMessage,
-                       config_.iconPath, L"ClipDeck")) {
+    if (!trayIcon_.Add(hwnd_, instance_, kTrayCallbackMessage, L"ClipDeck")) {
         MessageBoxW(hwnd_, L"Could not load tray icon.", L"Error",
                     MB_ICONERROR);
     }
     RegisterGlobalHotkey();
 
-    MSG message = {};
-    while (GetMessageW(&message, nullptr, 0, 0)) {
-        if (settingsWindow_.PreTranslateMessage(message)) {
-            continue;
-        }
+    return true;
+}
 
-        if (message.message == WM_KEYDOWN && message.wParam == VK_ESCAPE &&
-            hwnd_ && IsWindow(hwnd_) &&
-            (message.hwnd == hwnd_ || IsChild(hwnd_, message.hwnd))) {
-            HideWindow();
-            continue;
-        }
-
-        TranslateMessage(&message);
-        DispatchMessageW(&message);
+bool MainWindow::PreTranslateMessage(const MSG &message) {
+    if (message.message == WM_KEYDOWN && message.wParam == VK_ESCAPE && hwnd_ &&
+        IsWindow(hwnd_) &&
+        (message.hwnd == hwnd_ || IsChild(hwnd_, message.hwnd))) {
+        HideWindow();
+        return true;
     }
 
-    return static_cast<int>(message.wParam);
+    return false;
+}
+
+void MainWindow::ApplyConfig() {
+    if (!hwnd_) {
+        return;
+    }
+
+    RegisterGlobalHotkey();
+
+    clipListView_.SetMainWindowSettings(config_.mainWindowSettings);
+    clipListView_.SetSearchSettings(config_.searchSettings);
+    SetWindowPos(hwnd_, nullptr, 0, 0, config_.mainWindowSettings.width,
+                 config_.mainWindowSettings.height,
+                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
+
+    RECT clientRect = {};
+    GetClientRect(hwnd_, &clientRect);
+    clipListView_.Layout(clientRect.right - clientRect.left,
+                         clientRect.bottom - clientRect.top);
+    clipListView_.SetItems(config_.items);
+}
+
+void MainWindow::SetOpenSettingsCallback(std::function<bool()> callback) {
+    openSettingsCallback_ = std::move(callback);
+}
+
+void MainWindow::SetReloadConfigCallback(std::function<void()> callback) {
+    reloadConfigCallback_ = std::move(callback);
+}
+
+void MainWindow::SetSettingsActiveCallback(std::function<bool()> callback) {
+    isSettingsActiveCallback_ = std::move(callback);
 }
 
 bool MainWindow::CreateMainWindow() {
@@ -57,13 +78,13 @@ bool MainWindow::CreateMainWindow() {
     hwnd_ = CreateWindowExW(
         WS_EX_TOOLWINDOW, kWindowClassName, kWindowTitle,
         WS_OVERLAPPED | WS_SYSMENU | WS_SIZEBOX, CW_USEDEFAULT, CW_USEDEFAULT,
-        config_.windowSettings.width, config_.windowSettings.height, nullptr,
-        nullptr, instance_, this);
+        config_.mainWindowSettings.width, config_.mainWindowSettings.height,
+        nullptr, nullptr, instance_, this);
 
     if (!hwnd_)
         return false;
 
-    if (!config_.generalSettings.startHidden) {
+    if (!config_.appSettings.startHidden) {
         ShowWindowAndActivate();
     }
 
@@ -84,14 +105,14 @@ bool MainWindow::RegisterWindowClass() const {
 }
 
 bool MainWindow::RegisterGlobalHotkey() {
-    const std::wstring &hotkeyText = config_.generalSettings.hotkeyText;
+    const std::wstring &hotkeyText = config_.hotkeySettings.open;
     hotkey_.Unregister();
 
     ParsedHotkey parsedHotkey;
     std::wstring parseError;
     if (!ParseHotkey(hotkeyText, &parsedHotkey, &parseError)) {
         const std::wstring message =
-            L"Invalid global hotkey in config.txt:\n\n\"" + hotkeyText +
+            L"Invalid global hotkey in settings.txt:\n\n\"" + hotkeyText +
             L"\"\n\n" + parseError;
         MessageBoxW(hwnd_, message.c_str(), L"Error", MB_ICONERROR);
         return false;
@@ -103,49 +124,21 @@ bool MainWindow::RegisterGlobalHotkey() {
     }
 
     const std::wstring message =
-        L"Failed to register global hotkey from config.txt:\n\n\"" +
+        L"Failed to register global hotkey from settings.txt:\n\n\"" +
         hotkeyText + L"\"";
     MessageBoxW(hwnd_, message.c_str(), L"Error", MB_ICONERROR);
     return false;
 }
 
-void MainWindow::ReloadConfig() {
-    config_ = LoadAppConfig();
-    settingsWindow_.SetConfig(config_);
-
-    if (!hwnd_) {
-        return;
-    }
-
-    RegisterGlobalHotkey();
-
-    clipListView_.SetWindowSettings(config_.windowSettings);
-    clipListView_.SetEnableValueSearch(
-        config_.generalSettings.enableValueSearch);
-    clipListView_.SetCaseSensitiveSearchKey(
-        config_.generalSettings.caseSensitiveSearchKey);
-    clipListView_.SetCaseSensitiveSearchValue(
-        config_.generalSettings.caseSensitiveSearchValue);
-    SetWindowPos(hwnd_, nullptr, 0, 0, config_.windowSettings.width,
-                 config_.windowSettings.height,
-                 SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
-
-    RECT clientRect = {};
-    GetClientRect(hwnd_, &clientRect);
-    clipListView_.Layout(clientRect.right - clientRect.left,
-                         clientRect.bottom - clientRect.top);
-    clipListView_.SetItems(config_.items);
-}
-
 void MainWindow::OpenSettingsWindow() {
-    if (!settingsWindow_.Show()) {
+    if (!openSettingsCallback_ || !openSettingsCallback_()) {
         MessageBoxW(hwnd_, L"Could not open settings window.", L"Error",
                     MB_ICONERROR);
         return;
     }
 
-    if (IsWindowVisible(hwnd_) && config_.generalSettings.hideOnBlur &&
-        !config_.generalSettings.keepVisibleWhileConfiguring) {
+    if (IsWindowVisible(hwnd_) && config_.mainWindowSettings.hideOnBlur &&
+        !config_.mainWindowSettings.keepVisibleWhileConfiguring) {
         HideWindow();
     }
 }
@@ -163,14 +156,17 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
     case WM_SIZE:
         clipListView_.Layout(LOWORD(lParam), HIWORD(lParam));
         break;
-    case WM_ACTIVATE:
+    case WM_ACTIVATE: {
+        const bool settingsActive =
+            isSettingsActiveCallback_ && isSettingsActiveCallback_();
         if (wParam == WA_INACTIVE && IsWindowVisible(hwnd_) &&
-            config_.generalSettings.hideOnBlur && !settingsWindow_.IsActive() &&
-            !config_.generalSettings.keepVisibleWhileConfiguring) {
+            config_.mainWindowSettings.hideOnBlur && !settingsActive &&
+            !config_.mainWindowSettings.keepVisibleWhileConfiguring) {
             HideWindow();
             return 0;
         }
         break;
+    }
     case WM_HOTKEY:
         if (hotkey_.Matches(wParam)) {
             OnHotkey();
@@ -203,8 +199,8 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 }
 
 LRESULT MainWindow::OnCreate() {
-    if (!clipListView_.Create(hwnd_, instance_, config_.windowSettings,
-                              config_.generalSettings)) {
+    if (!clipListView_.Create(hwnd_, instance_, config_.mainWindowSettings,
+                              config_.searchSettings)) {
         return -1;
     }
 
@@ -213,7 +209,6 @@ LRESULT MainWindow::OnCreate() {
 }
 
 void MainWindow::OnDestroy() {
-    settingsWindow_.Destroy();
     hotkey_.Unregister();
     trayIcon_.Remove();
     clipListView_.Destroy();
@@ -243,7 +238,9 @@ void MainWindow::OnTrayMenuAction(TrayIcon::MenuAction action) {
         ShowWindowAndActivate();
         break;
     case TrayIcon::MenuAction::ReloadConfig:
-        ReloadConfig();
+        if (reloadConfigCallback_) {
+            reloadConfigCallback_();
+        }
         break;
     case TrayIcon::MenuAction::ShowConfig:
         MessageBoxW(hwnd_, L"Config option not implemented yet.", L"Info",
@@ -295,9 +292,9 @@ void MainWindow::ActivateSelectedItem(bool copyOnly) {
     }
 
     const bool effectiveAutoClose =
-        selectedItem.autoClose.value_or(config_.generalSettings.autoClose);
+        selectedItem.autoClose.value_or(config_.activationSettings.autoClose);
     const bool effectiveAutoPaste =
-        selectedItem.autoPaste.value_or(config_.generalSettings.autoPaste);
+        selectedItem.autoPaste.value_or(config_.activationSettings.autoPaste);
 
     if (effectiveAutoClose) {
         HideWindow();

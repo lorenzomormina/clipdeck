@@ -1,0 +1,39 @@
+; ClipDeck configuration
+; Use \n in order to insert newlines in Values
+
+[App]
+StartHidden=false ; should be true by default on release
+
+[Hotkey]
+Open="Ctrl+Shift+Backtick"
+
+[MainWindow]
+Width=400
+Height=300
+Margin=4
+TextBoxMargin=6
+HideOnBlur=true
+KeepVisibleWhileConfiguring=true
+
+[SettingsWindow]
+Width=800
+Height=600
+Margin=4
+
+[Activation]
+AutoClose=true
+AutoPaste=false ; can be true only if AutoClose is true
+
+[Search]
+SearchValues=false
+CaseSensitiveKeys=false
+CaseSensitiveValues=true
+
+[[Item]]
+Key="mykey"
+Value="myvalue"
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveKeys=
+Search.CaseSensitiveValues=
