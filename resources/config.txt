@@ -8,6 +8,7 @@ AutoClose=true
 AutoPaste=false ; can be true only if AutoClose is true
 EnableValueSearch=false
 HideOnBlur=true
+KeepVisibleWhileConfiguring=true
 
 [Window]
 Width=400

@@ -30,6 +30,7 @@ struct GeneralSettings {
     bool autoPaste = false;
     bool enableValueSearch = false;
     bool hideOnBlur = true;
+    bool keepVisibleWhileConfiguring = true;
 };
 
 struct WindowSettings {

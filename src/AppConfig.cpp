@@ -275,6 +275,10 @@ void ApplyGeneralSetting(AppConfig *config, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             config->generalSettings.hideOnBlur = parsed;
         }
+    } else if (key == L"KeepVisibleWhileConfiguring") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.keepVisibleWhileConfiguring = parsed;
+        }
     }
 }
 

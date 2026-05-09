@@ -140,7 +140,8 @@ void MainWindow::OpenSettingsWindow() {
         return;
     }
 
-    if (IsWindowVisible(hwnd_) && config_.generalSettings.hideOnBlur) {
+    if (IsWindowVisible(hwnd_) && config_.generalSettings.hideOnBlur &&
+        !config_.generalSettings.keepVisibleWhileConfiguring) {
         HideWindow();
     }
 }
@@ -160,7 +161,8 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
         break;
     case WM_ACTIVATE:
         if (wParam == WA_INACTIVE && IsWindowVisible(hwnd_) &&
-            config_.generalSettings.hideOnBlur) {
+            config_.generalSettings.hideOnBlur && !settingsWindow_.IsActive() &&
+            !config_.generalSettings.keepVisibleWhileConfiguring) {
             HideWindow();
             return 0;
         }

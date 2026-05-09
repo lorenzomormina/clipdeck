@@ -23,6 +23,13 @@ class SettingsWindow {
 
     HWND GetHandle() const { return hwnd_; }
 
+    bool IsActive() const {
+        if (!hwnd_ || !IsWindow(hwnd_)) {
+            return false;
+        }
+        return GetForegroundWindow() == hwnd_;
+    }
+
   private:
     struct SettingsState {
         std::wstring originalText;
