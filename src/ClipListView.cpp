@@ -454,8 +454,16 @@ void ClipListView::ApplyCurrentFilter() {
                 item.caseSensitiveSearchValue.value_or(
                     caseSensitiveSearchValue_);
 
-            const std::wstring filterToUse =
-                effectiveCaseSensitiveSearchKey ? filter : toLower(filter);
+            std::wstring lowerFilter;
+            if (!effectiveCaseSensitiveSearchKey ||
+                !effectiveCaseSensitiveSearchValue) {
+                lowerFilter = toLower(filter);
+            }
+
+            const std::wstring keyFilterToUse =
+                effectiveCaseSensitiveSearchKey ? filter : lowerFilter;
+            const std::wstring valueFilterToUse =
+                effectiveCaseSensitiveSearchValue ? filter : lowerFilter;
             const std::wstring keyToUse =
                 effectiveCaseSensitiveSearchKey ? item.key : toLower(item.key);
             const std::wstring valueToUse = effectiveCaseSensitiveSearchValue
@@ -463,10 +471,10 @@ void ClipListView::ApplyCurrentFilter() {
                                                 : toLower(item.value);
 
             const bool matchesKey =
-                keyToUse.find(filterToUse) != std::wstring::npos;
+                keyToUse.find(keyFilterToUse) != std::wstring::npos;
             const bool matchesValue =
                 effectiveEnableValueSearch &&
-                valueToUse.find(filterToUse) != std::wstring::npos;
+                valueToUse.find(valueFilterToUse) != std::wstring::npos;
 
             if (!matchesKey && !matchesValue) {
                 continue;
