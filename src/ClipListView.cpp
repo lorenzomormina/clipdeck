@@ -1,5 +1,6 @@
 #include "ClipListView.h"
 #include "../resources/resource.h"
+#include "utils.h"
 
 #include <algorithm>
 #include <commctrl.h>
@@ -16,11 +17,14 @@ bool IsControlKeyDown() { return (GetKeyState(VK_CONTROL) & 0x8000) != 0; }
 ClipListView::~ClipListView() { Destroy(); }
 
 bool ClipListView::Create(HWND parent, HINSTANCE instance,
-                          WindowSettings settings, bool enableValueSearch) {
+                          WindowSettings windowSettings,
+                          GeneralSettings generalSettings) {
     parent_ = parent;
-    windowSettings_ = settings;
+    windowSettings_ = windowSettings;
     uiTextHeight_ = 0;
-    enableValueSearch_ = enableValueSearch;
+    enableValueSearch_ = generalSettings.enableValueSearch;
+    caseSensitiveSearchKey_ = generalSettings.caseSensitiveSearchKey;
+    caseSensitiveSearchValue_ = generalSettings.caseSensitiveSearchValue;
 
     listBox_ = CreateWindowExW(
         0, L"LISTBOX", nullptr,
@@ -152,6 +156,14 @@ void ClipListView::SetWindowSettings(WindowSettings settings) {
 
 void ClipListView::SetEnableValueSearch(bool enable) {
     enableValueSearch_ = enable;
+}
+
+void ClipListView::SetCaseSensitiveSearchKey(bool value) {
+    caseSensitiveSearchKey_ = value;
+}
+
+void ClipListView::SetCaseSensitiveSearchValue(bool value) {
+    caseSensitiveSearchValue_ = value;
 }
 
 void ClipListView::Layout(int clientWidth, int clientHeight) {
@@ -436,10 +448,26 @@ void ClipListView::ApplyCurrentFilter() {
         if (!filter.empty()) {
             const bool effectiveEnableValueSearch =
                 item.enableValueSearch.value_or(enableValueSearch_);
-            const bool matchesKey = item.key.find(filter) != std::wstring::npos;
+            const bool effectiveCaseSensitiveSearchKey =
+                item.caseSensitiveSearchKey.value_or(caseSensitiveSearchKey_);
+            const bool effectiveCaseSensitiveSearchValue =
+                item.caseSensitiveSearchValue.value_or(
+                    caseSensitiveSearchValue_);
+
+            const std::wstring filterToUse =
+                effectiveCaseSensitiveSearchKey ? filter : toLower(filter);
+            const std::wstring keyToUse =
+                effectiveCaseSensitiveSearchKey ? item.key : toLower(item.key);
+            const std::wstring valueToUse = effectiveCaseSensitiveSearchValue
+                                                ? item.value
+                                                : toLower(item.value);
+
+            const bool matchesKey =
+                keyToUse.find(filterToUse) != std::wstring::npos;
             const bool matchesValue =
                 effectiveEnableValueSearch &&
-                item.value.find(filter) != std::wstring::npos;
+                valueToUse.find(filterToUse) != std::wstring::npos;
+
             if (!matchesKey && !matchesValue) {
                 continue;
             }

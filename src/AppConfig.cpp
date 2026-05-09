@@ -279,6 +279,14 @@ void ApplyGeneralSetting(AppConfig *config, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             config->generalSettings.keepVisibleWhileConfiguring = parsed;
         }
+    } else if (key == L"CaseSensitiveSearchKey") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.caseSensitiveSearchKey = parsed;
+        }
+    } else if (key == L"CaseSensitiveSearchValue") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->generalSettings.caseSensitiveSearchValue = parsed;
+        }
     }
 }
 
@@ -348,6 +356,14 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
     } else if (key == L"EnableValueSearch") {
         if (ParseBoolValue(valueToken, &parsed)) {
             item->enableValueSearch = parsed;
+        }
+    } else if (key == L"CaseSensitiveSearchKey") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            item->caseSensitiveSearchKey = parsed;
+        }
+    } else if (key == L"CaseSensitiveSearchValue") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            item->caseSensitiveSearchValue = parsed;
         }
     } else if (key == L"AutoClose") {
         if (ParseBoolValue(valueToken, &parsed)) {

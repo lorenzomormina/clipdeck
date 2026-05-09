@@ -14,6 +14,8 @@ struct ClipItem {
     std::optional<bool> enableValueSearch;
     std::optional<bool> autoClose;
     std::optional<bool> autoPaste;
+    std::optional<bool> caseSensitiveSearchKey;
+    std::optional<bool> caseSensitiveSearchValue;
 
     std::wstring GetDisplayText() const {
         if (hidden) {
@@ -31,6 +33,8 @@ struct GeneralSettings {
     bool enableValueSearch = false;
     bool hideOnBlur = true;
     bool keepVisibleWhileConfiguring = true;
+    bool caseSensitiveSearchKey = false;
+    bool caseSensitiveSearchValue = true;
 };
 
 struct WindowSettings {

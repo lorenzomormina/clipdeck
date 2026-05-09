@@ -18,6 +18,7 @@ add_executable(
     src/MainWindow.cpp
     src/SettingsWindow.cpp
     src/TrayIcon.cpp
+    src/utils.h
 )
 
 target_compile_definitions(

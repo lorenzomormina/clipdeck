@@ -122,6 +122,10 @@ void MainWindow::ReloadConfig() {
     clipListView_.SetWindowSettings(config_.windowSettings);
     clipListView_.SetEnableValueSearch(
         config_.generalSettings.enableValueSearch);
+    clipListView_.SetCaseSensitiveSearchKey(
+        config_.generalSettings.caseSensitiveSearchKey);
+    clipListView_.SetCaseSensitiveSearchValue(
+        config_.generalSettings.caseSensitiveSearchValue);
     SetWindowPos(hwnd_, nullptr, 0, 0, config_.windowSettings.width,
                  config_.windowSettings.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -200,7 +204,7 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 
 LRESULT MainWindow::OnCreate() {
     if (!clipListView_.Create(hwnd_, instance_, config_.windowSettings,
-                              config_.generalSettings.enableValueSearch)) {
+                              config_.generalSettings)) {
         return -1;
     }
 

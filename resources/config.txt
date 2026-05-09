@@ -9,6 +9,8 @@ AutoPaste=false ; can be true only if AutoClose is true
 EnableValueSearch=false
 HideOnBlur=true
 KeepVisibleWhileConfiguring=true
+CaseSensitiveSearchKey=false
+CaseSensitiveSearchValue=true
 
 [Window]
 Width=400
@@ -72,3 +74,19 @@ Hidden=false
 Key="accented letters"
 Value="è è é é î È É"
 Hidden=false
+
+[[Item]]
+Key="Alert"
+Value="Blind"
+
+[[Item]]
+Key="Crying"
+Value="david"
+
+[[Item]]
+Key="envy"
+Value="Frank"
+
+[[Item]]
+Key="growing"
+Value="hotel"
