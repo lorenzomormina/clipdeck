@@ -34,10 +34,10 @@ Today, in code, it:
 * uses one top-level main window for snippet selection
 * uses one separate top-level settings window for raw settings editing
 * copies the selected value to the clipboard
-* optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using per-item `AutoClose` / `AutoPaste` overrides when present
+* optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using per-item `Activation.AutoClose` / `Activation.AutoPaste` overrides when present
 * supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected value without closing or auto-pasting
 * auto-paste only runs in the effective `AutoClose=true` activation flow
-* supports key-based filtering and optional value-based filtering through `SearchValues`, with separate key/value case-sensitivity controls
+* supports key-based filtering and optional value-based filtering through `Search.SearchValues`, with separate key/value case-sensitivity and advanced-search controls
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
 
@@ -66,7 +66,7 @@ This section reflects the current code in `main.cpp`, `ClipDeckApp.*`, `MainWind
    * a `LISTBOX`
    * a filter `EDIT`
    * a settings icon button
-10. Typing in the filter box starts a 100 ms debounce timer. Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `SearchValues` setting is true. Key matching uses the effective `CaseSensitiveKeys` setting, and value matching uses the effective `CaseSensitiveValues` setting. Each effective search setting is computed independently from the item first, falling back to `[Search]` when the item does not override it.
+10. Typing in the filter box starts a 100 ms debounce timer. Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `SearchValues` setting is true. Key matching uses the effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Each effective search setting is computed independently from the item first, falling back to `[Search]` when the item does not override it.
 11. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
 12. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
 13. Activation copies the selected value to the clipboard.
@@ -175,12 +175,13 @@ The application currently has two concrete top-level windows:
 * searchable key/value list UI
 * clipboard copy on item activation
 * copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`
-* optional auto-close after activation, with per-item `AutoClose` overrides
-* optional auto-paste attempt back to the previously focused window, with per-item `AutoPaste` overrides
+* optional auto-close after activation, with per-item `Activation.AutoClose` overrides
+* optional auto-paste attempt back to the previously focused window, with per-item `Activation.AutoPaste` overrides
 * raw settings text editor with save/discard confirmation
 * config reload after settings save or tray reload
-* value search is implemented through effective `SearchValues`, with per-item overrides falling back to `[Search]`
-* key/value search case sensitivity is configurable through effective `CaseSensitiveKeys` and `CaseSensitiveValues`
+* value search is implemented through effective `SearchValues`, with per-item `Search.SearchValues` overrides falling back to `[Search]`
+* key/value search case sensitivity is configurable through effective `CaseSensitiveSearchKeys` and `CaseSensitiveSearchValues`
+* key/value advanced search is configurable independently through effective `AdvancedSearchKeys` and `AdvancedSearchValues`
 
 ### Partial / limited
 
@@ -206,8 +207,11 @@ The default copy is stored in `resources/settings.txt` and copied beside the exe
 Example shape:
 
 ```ini
+; ClipDeck configuration
+; Use \n in order to insert newlines in Values
+
 [App]
-StartHidden=false
+StartHidden=false ; should be true by default on release
 
 [Hotkey]
 Open="Ctrl+Shift+Backtick"
@@ -227,22 +231,26 @@ Margin=4
 
 [Activation]
 AutoClose=true
-AutoPaste=false
+AutoPaste=false ; can be true only if AutoClose is true
 
 [Search]
 SearchValues=false
-CaseSensitiveKeys=false
-CaseSensitiveValues=true
+CaseSensitiveSearchKeys=false
+CaseSensitiveSearchValues=true
+AdvancedSearchKeys=false
+AdvancedSearchValues=false
 
 [[Item]]
-Key="firma"
-Value="Cordiali saluti,\nMario Rossi"
-Hidden=false
-AutoClose=false
-AutoPaste=true
-SearchValues=true
-CaseSensitiveKeys=false
-CaseSensitiveValues=true
+Key="mykey"
+Value="myvalue"
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
 ```
 
 ### Current parser behavior
@@ -284,8 +292,10 @@ CaseSensitiveValues=true
 #### `[Search]`
 
 * `SearchValues`: used as the global default for value-based filtering
-* `CaseSensitiveKeys`: used as the global default for key filter matching case sensitivity
-* `CaseSensitiveValues`: used as the global default for value filter matching case sensitivity
+* `CaseSensitiveSearchKeys`: used as the global default for key filter matching case sensitivity
+* `CaseSensitiveSearchValues`: used as the global default for value filter matching case sensitivity
+* `AdvancedSearchKeys`: used as the global default for key advanced-search matching
+* `AdvancedSearchValues`: used as the global default for value advanced-search matching
 
 `HideOnBlur` and `KeepVisibleWhileConfiguring` work together only for the settings-window flow:
 
@@ -303,14 +313,17 @@ Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding
 * `Key`: used for display and filtering
 * `Value`: used for clipboard/paste output and, when effective `SearchValues=true`, filtering
 * `Hidden`: used only to mask the visible display text
-* `SearchValues`: optional per-item override for `[Search].SearchValues`
-* `CaseSensitiveKeys`: optional per-item override for `[Search].CaseSensitiveKeys`
-* `CaseSensitiveValues`: optional per-item override for `[Search].CaseSensitiveValues`
-* `AutoClose`: optional per-item override for `[Activation].AutoClose`
-* `AutoPaste`: optional per-item override for `[Activation].AutoPaste`
+* `Search.SearchValues`: optional per-item override for `[Search].SearchValues`
+* `Search.CaseSensitiveSearchKeys`: optional per-item override for `[Search].CaseSensitiveSearchKeys`
+* `Search.CaseSensitiveSearchValues`: optional per-item override for `[Search].CaseSensitiveSearchValues`
+* `Search.AdvancedSearchKeys`: optional per-item override for `[Search].AdvancedSearchKeys`
+* `Search.AdvancedSearchValues`: optional per-item override for `[Search].AdvancedSearchValues`
+* `Activation.AutoClose`: optional per-item override for `[Activation].AutoClose`
+* `Activation.AutoPaste`: optional per-item override for `[Activation].AutoPaste`
 
-Missing or empty item-level `SearchValues`, `CaseSensitiveKeys`, `CaseSensitiveValues`, `AutoClose`, and `AutoPaste` fields fall back independently to `[Search]` or `[Activation]` as appropriate.
-Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `SearchValues` setting is true. Key matching uses the effective `CaseSensitiveKeys` setting, and value matching uses the effective `CaseSensitiveValues` setting. Each effective search setting is computed independently from the item first, falling back to `[Search]` when the item does not override it.
+Missing or empty item-level `Search.SearchValues`, `Search.CaseSensitiveSearchKeys`, `Search.CaseSensitiveSearchValues`, `Search.AdvancedSearchKeys`, `Search.AdvancedSearchValues`, `Activation.AutoClose`, and `Activation.AutoPaste` fields fall back independently to `[Search]` or `[Activation]` as appropriate.
+Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `SearchValues` setting is true. When effective `SearchValues=false`, item values are ignored during filtering and effective `AdvancedSearchValues` has no effect. Key matching uses the effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Case sensitivity and advanced search are evaluated independently for keys and values. Each effective search setting is computed independently from the item first, falling back to `[Search]` when the item does not override it.
+Normal search checks whether the key or value contains the whole filter string as one substring. Advanced search splits the filter by spaces, then matches only when the key or value contains all filter parts as substrings. Advanced search still respects the effective key or value case-sensitivity setting. For filter `foo bar`, normal search matches only text containing the exact substring `foo bar`; advanced search matches text containing both `foo` and `bar` in any position or order.
 On activation, the selected value is always copied first. The effective `AutoClose` value then decides whether the main window hides. The effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
 
 ### Important note about settings editing
