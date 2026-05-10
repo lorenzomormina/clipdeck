@@ -12,6 +12,7 @@ namespace ClipDeck {
 
 namespace {
 wchar_t kConfigurationToolTipText[] = L"Configuration";
+wchar_t kGroupToggleToolTipText[] = L"Show or hide groups";
 
 bool IsControlKeyDown() { return (GetKeyState(VK_CONTROL) & 0x8000) != 0; }
 } // namespace
@@ -19,12 +20,45 @@ bool IsControlKeyDown() { return (GetKeyState(VK_CONTROL) & 0x8000) != 0; }
 ClipListView::~ClipListView() { Destroy(); }
 
 bool ClipListView::Create(HWND parent, HINSTANCE instance,
-                          MainWindowSettings mainWindowSettings,
-                          SearchSettings searchSettings) {
+                          MainWindowSettings mainWindowSettings) {
     parent_ = parent;
     mainWindowSettings_ = mainWindowSettings;
-    searchSettings_ = searchSettings;
     uiTextHeight_ = 0;
+    groupListVisible_ = false;
+
+    groupToggleButton_ = CreateWindowExW(
+        0, L"BUTTON", nullptr, WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON | BS_ICON,
+        0, 0, 0, 0, parent_,
+        reinterpret_cast<HMENU>(
+            static_cast<INT_PTR>(kGroupToggleButtonControlId)),
+        instance, nullptr);
+    if (!groupToggleButton_) {
+        Destroy();
+        return false;
+    }
+
+    selectedGroupTextBox_ = CreateWindowExW(
+        0, L"EDIT", nullptr,
+        WS_CHILD | WS_VISIBLE | WS_BORDER | ES_AUTOHSCROLL | ES_READONLY, 0, 0,
+        0, 0, parent_,
+        reinterpret_cast<HMENU>(
+            static_cast<INT_PTR>(kSelectedGroupTextBoxControlId)),
+        instance, nullptr);
+    if (!selectedGroupTextBox_) {
+        Destroy();
+        return false;
+    }
+
+    groupListBox_ = CreateWindowExW(
+        0, L"LISTBOX", nullptr,
+        WS_CHILD | LBS_NOTIFY | WS_VSCROLL | WS_BORDER | LBS_NOINTEGRALHEIGHT,
+        0, 0, 0, 0, parent_,
+        reinterpret_cast<HMENU>(static_cast<INT_PTR>(kGroupListBoxControlId)),
+        instance, nullptr);
+    if (!groupListBox_) {
+        Destroy();
+        return false;
+    }
 
     listBox_ = CreateWindowExW(
         0, L"LISTBOX", nullptr,
@@ -66,40 +100,17 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
         return false;
     }
 
-    settingsToolTip_ = CreateWindowExW(
-        WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
-        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT, CW_USEDEFAULT,
-        CW_USEDEFAULT, CW_USEDEFAULT, parent_, nullptr, instance, nullptr);
-    if (settingsToolTip_) {
-        TOOLINFOW toolInfo = {};
-#ifdef TTTOOLINFOW_V2_SIZE
-        toolInfo.cbSize = TTTOOLINFOW_V2_SIZE;
-#else
-        toolInfo.cbSize = sizeof(toolInfo);
-#endif
-        toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
-        toolInfo.hwnd = parent_;
-        toolInfo.uId = reinterpret_cast<UINT_PTR>(settingsButton_);
-        toolInfo.lpszText = kConfigurationToolTipText;
-
-        if (!SendMessageW(settingsToolTip_, TTM_ADDTOOLW, 0,
-                          reinterpret_cast<LPARAM>(&toolInfo))) {
-#ifdef TTTOOLINFOW_V1_SIZE
-            toolInfo.cbSize = TTTOOLINFOW_V1_SIZE;
-            if (!SendMessageW(settingsToolTip_, TTM_ADDTOOLW, 0,
-                              reinterpret_cast<LPARAM>(&toolInfo))) {
-                DestroyWindow(settingsToolTip_);
-                settingsToolTip_ = nullptr;
-            }
-#else
-            DestroyWindow(settingsToolTip_);
-            settingsToolTip_ = nullptr;
-#endif
-        }
-    }
+    groupToggleToolTip_ =
+        CreateToolTip(instance, groupToggleButton_, kGroupToggleToolTipText);
+    settingsToolTip_ =
+        CreateToolTip(instance, settingsButton_, kConfigurationToolTipText);
 
     uiFont_ = CreateSystemUiFont();
     if (uiFont_) {
+        SendMessageW(groupListBox_, WM_SETFONT,
+                     reinterpret_cast<WPARAM>(uiFont_), TRUE);
+        SendMessageW(selectedGroupTextBox_, WM_SETFONT,
+                     reinterpret_cast<WPARAM>(uiFont_), TRUE);
         SendMessageW(listBox_, WM_SETFONT, reinterpret_cast<WPARAM>(uiFont_),
                      TRUE);
         SendMessageW(filterTextBox_, WM_SETFONT,
@@ -119,14 +130,21 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
     }
 
     const int iconSize = std::max(16, GetSystemMetrics(SM_CXSMICON));
+    groupListOpenIcon_ = static_cast<HICON>(LoadImageW(
+        instance, MAKEINTRESOURCEW(IDI_GROUP_LIST_OPEN), IMAGE_ICON, iconSize,
+        iconSize, LR_DEFAULTCOLOR));
+    groupListCloseIcon_ = static_cast<HICON>(LoadImageW(
+        instance, MAKEINTRESOURCEW(IDI_GROUP_LIST_CLOSE), IMAGE_ICON, iconSize,
+        iconSize, LR_DEFAULTCOLOR));
     settingsIcon_ = static_cast<HICON>(
         LoadImageW(instance, MAKEINTRESOURCEW(IDI_SETTINGS), IMAGE_ICON,
                    iconSize, iconSize, LR_DEFAULTCOLOR));
-    if (!settingsIcon_) {
+    if (!groupListOpenIcon_ || !groupListCloseIcon_ || !settingsIcon_) {
         Destroy();
         return false;
     }
 
+    UpdateGroupToggleIcon();
     SendMessageW(settingsButton_, BM_SETIMAGE, IMAGE_ICON,
                  reinterpret_cast<LPARAM>(settingsIcon_));
 
@@ -154,37 +172,56 @@ void ClipListView::SetMainWindowSettings(MainWindowSettings settings) {
     mainWindowSettings_ = settings;
 }
 
-void ClipListView::SetSearchSettings(SearchSettings settings) {
-    searchSettings_ = settings;
-}
-
 void ClipListView::Layout(int clientWidth, int clientHeight) {
-    if (!parent_ || !listBox_ || !filterTextBox_ || !settingsButton_) {
+    if (!parent_ || !groupToggleButton_ || !selectedGroupTextBox_ ||
+        !groupListBox_ || !listBox_ || !filterTextBox_ || !settingsButton_) {
         return;
     }
 
-    const int margin = mainWindowSettings_.margin;
-    const int originalTextBoxWidth = std::max(0, clientWidth - 2 * margin);
-    const int textBoxHeight =
+    const int margin = std::max(0, mainWindowSettings_.margin);
+    const int controlHeight =
         std::max(0, uiTextHeight_ + mainWindowSettings_.textBoxMargin);
-    const int settingsButtonWidth = textBoxHeight;
-    const int textBoxWidth =
-        std::max(0, originalTextBoxWidth - margin - settingsButtonWidth);
-    const int textBoxX = margin;
-    const int textBoxY = std::max(0, clientHeight - margin - textBoxHeight);
-    const int settingsButtonX = textBoxX + textBoxWidth + margin;
+    const int availableWidth = std::max(0, clientWidth - 2 * margin);
 
-    const int listBoxX = margin;
-    const int listBoxY = margin;
-    const int listBoxWidth = std::max(0, clientWidth - 2 * margin);
-    const int listBoxHeight =
-        std::max(0, clientHeight - 3 * margin - textBoxHeight);
+    const int topRowY = margin;
+    const int groupButtonWidth = controlHeight;
+    const int selectedGroupTextBoxX = margin + groupButtonWidth + margin;
+    const int selectedGroupTextBoxWidth =
+        std::max(0, clientWidth - selectedGroupTextBoxX - margin);
 
-    MoveWindow(filterTextBox_, textBoxX, textBoxY, textBoxWidth, textBoxHeight,
-               TRUE);
-    MoveWindow(settingsButton_, settingsButtonX, textBoxY, settingsButtonWidth,
-               textBoxHeight, TRUE);
-    MoveWindow(listBox_, listBoxX, listBoxY, listBoxWidth, listBoxHeight, TRUE);
+    const int bottomRowY =
+        std::max(0, clientHeight - margin - controlHeight);
+    const int settingsButtonWidth = controlHeight;
+    const int filterTextBoxWidth =
+        std::max(0, availableWidth - margin - settingsButtonWidth);
+    const int filterTextBoxX = margin;
+    const int settingsButtonX = filterTextBoxX + filterTextBoxWidth + margin;
+
+    const int contentY = topRowY + controlHeight + margin;
+    const int contentHeight =
+        std::max(0, bottomRowY - margin - contentY);
+    const int groupListBoxX = margin;
+    const int groupListBoxWidth =
+        std::max(0, mainWindowSettings_.groupListBoxWidth);
+    const int listBoxX = groupListVisible_
+                             ? groupListBoxX + groupListBoxWidth + margin
+                             : margin;
+    const int listBoxWidth = groupListVisible_
+                                 ? std::max(0, clientWidth - listBoxX - margin)
+                                 : availableWidth;
+
+    MoveWindow(groupToggleButton_, margin, topRowY, groupButtonWidth,
+               controlHeight, TRUE);
+    MoveWindow(selectedGroupTextBox_, selectedGroupTextBoxX, topRowY,
+               selectedGroupTextBoxWidth, controlHeight, TRUE);
+    MoveWindow(groupListBox_, groupListBoxX, contentY, groupListBoxWidth,
+               contentHeight, TRUE);
+    MoveWindow(listBox_, listBoxX, contentY, listBoxWidth, contentHeight, TRUE);
+    MoveWindow(filterTextBox_, filterTextBoxX, bottomRowY,
+               filterTextBoxWidth, controlHeight, TRUE);
+    MoveWindow(settingsButton_, settingsButtonX, bottomRowY,
+               settingsButtonWidth, controlHeight, TRUE);
+    ShowWindow(groupListBox_, groupListVisible_ ? SW_SHOW : SW_HIDE);
 }
 
 void ClipListView::Destroy() {
@@ -193,18 +230,50 @@ void ClipListView::Destroy() {
     }
 
     ReleaseControlResources();
-    visibleItemIndices_.clear();
-    items_ = nullptr;
+    allItemRefs_.clear();
+    visibleItemRefs_.clear();
+    groups_ = nullptr;
+    selectedGroupKey_.clear();
+    groupToggleButton_ = nullptr;
+    selectedGroupTextBox_ = nullptr;
+    groupListBox_ = nullptr;
     listBox_ = nullptr;
     filterTextBox_ = nullptr;
     settingsButton_ = nullptr;
+    groupToggleToolTip_ = nullptr;
     settingsToolTip_ = nullptr;
     uiTextHeight_ = 0;
+    groupListVisible_ = false;
     parent_ = nullptr;
 }
 
-void ClipListView::SetItems(const std::vector<ClipItem> &items) {
-    items_ = &items;
+void ClipListView::SetGroups(const std::vector<Group> &groups) {
+    const std::wstring previousGroupKey = selectedGroupKey_;
+    groups_ = &groups;
+    allItemRefs_.clear();
+
+    for (size_t groupIndex = 0; groupIndex < groups.size(); ++groupIndex) {
+        const Group &group = groups[groupIndex];
+        for (size_t itemIndex = 0; itemIndex < group.items.size();
+             ++itemIndex) {
+            allItemRefs_.push_back({groupIndex, itemIndex});
+        }
+    }
+
+    std::sort(allItemRefs_.begin(), allItemRefs_.end(),
+              [this](ItemRef left, ItemRef right) {
+                  const ClipItem *leftItem = ResolveItemRef(left);
+                  const ClipItem *rightItem = ResolveItemRef(right);
+                  if (!leftItem || !rightItem) {
+                      return false;
+                  }
+
+                  return leftItem->loadOrder < rightItem->loadOrder;
+              });
+
+    SelectGroupByKeyOrFallback(previousGroupKey);
+    PopulateGroupList();
+    UpdateSelectedGroupText();
     ApplyCurrentFilter();
 }
 
@@ -216,6 +285,27 @@ ClipListView::Event ClipListView::HandleCommand(HWND parent, WPARAM wParam,
 
     const int controlId = LOWORD(wParam);
     const int notifyCode = HIWORD(wParam);
+
+    if (controlId == kGroupToggleButtonControlId &&
+        reinterpret_cast<HWND>(lParam) == groupToggleButton_ &&
+        notifyCode == BN_CLICKED) {
+        groupListVisible_ = !groupListVisible_;
+        UpdateGroupToggleIcon();
+        RECT clientRect = {};
+        GetClientRect(parent_, &clientRect);
+        Layout(clientRect.right - clientRect.left,
+               clientRect.bottom - clientRect.top);
+        return Event::None;
+    }
+
+    if (controlId == kGroupListBoxControlId &&
+        reinterpret_cast<HWND>(lParam) == groupListBox_ &&
+        notifyCode == LBN_SELCHANGE) {
+        const int selectedRow =
+            static_cast<int>(SendMessageW(groupListBox_, LB_GETCURSEL, 0, 0));
+        SelectGroupAtRow(selectedRow);
+        return Event::None;
+    }
 
     if (controlId == kFilterTextBoxControlId &&
         reinterpret_cast<HWND>(lParam) == filterTextBox_ &&
@@ -271,19 +361,13 @@ bool ClipListView::SelectFirstVisibleItem() const {
     return true;
 }
 
-std::optional<size_t> ClipListView::GetSelectedItemIndex() const {
-    if (!listBox_) {
-        return std::nullopt;
+const ClipItem *ClipListView::GetSelectedItem() const {
+    const std::optional<ItemRef> selectedItemRef = GetSelectedItemRef();
+    if (!selectedItemRef) {
+        return nullptr;
     }
 
-    const int selectedRow =
-        static_cast<int>(SendMessageW(listBox_, LB_GETCURSEL, 0, 0));
-    if (selectedRow == LB_ERR || selectedRow < 0 ||
-        selectedRow >= static_cast<int>(visibleItemIndices_.size())) {
-        return std::nullopt;
-    }
-
-    return visibleItemIndices_[selectedRow];
+    return ResolveItemRef(*selectedItemRef);
 }
 
 LRESULT CALLBACK ClipListView::ListBoxProcThunk(HWND hwnd, UINT message,
@@ -346,6 +430,44 @@ HFONT ClipListView::CreateSystemUiFont() const {
     return CreateFontIndirectW(&metrics.lfMessageFont);
 }
 
+HWND ClipListView::CreateToolTip(HINSTANCE instance, HWND tool,
+                                 wchar_t *text) const {
+    HWND toolTip = CreateWindowExW(
+        WS_EX_TOPMOST, TOOLTIPS_CLASSW, nullptr,
+        WS_POPUP | TTS_NOPREFIX | TTS_ALWAYSTIP, CW_USEDEFAULT, CW_USEDEFAULT,
+        CW_USEDEFAULT, CW_USEDEFAULT, parent_, nullptr, instance, nullptr);
+    if (!toolTip) {
+        return nullptr;
+    }
+
+    TOOLINFOW toolInfo = {};
+#ifdef TTTOOLINFOW_V2_SIZE
+    toolInfo.cbSize = TTTOOLINFOW_V2_SIZE;
+#else
+    toolInfo.cbSize = sizeof(toolInfo);
+#endif
+    toolInfo.uFlags = TTF_IDISHWND | TTF_SUBCLASS;
+    toolInfo.hwnd = parent_;
+    toolInfo.uId = reinterpret_cast<UINT_PTR>(tool);
+    toolInfo.lpszText = text;
+
+    if (SendMessageW(toolTip, TTM_ADDTOOLW, 0,
+                     reinterpret_cast<LPARAM>(&toolInfo))) {
+        return toolTip;
+    }
+
+#ifdef TTTOOLINFOW_V1_SIZE
+    toolInfo.cbSize = TTTOOLINFOW_V1_SIZE;
+    if (SendMessageW(toolTip, TTM_ADDTOOLW, 0,
+                     reinterpret_cast<LPARAM>(&toolInfo))) {
+        return toolTip;
+    }
+#endif
+
+    DestroyWindow(toolTip);
+    return nullptr;
+}
+
 void ClipListView::ReleaseControlResources() {
     if (listBox_ && IsWindow(listBox_) && originalListBoxProc_) {
         SetWindowLongPtrW(listBox_, GWLP_WNDPROC,
@@ -361,9 +483,24 @@ void ClipListView::ReleaseControlResources() {
     }
     originalFilterTextBoxProc_ = nullptr;
 
+    if (groupToggleToolTip_ && IsWindow(groupToggleToolTip_)) {
+        DestroyWindow(groupToggleToolTip_);
+        groupToggleToolTip_ = nullptr;
+    }
+
     if (settingsToolTip_ && IsWindow(settingsToolTip_)) {
         DestroyWindow(settingsToolTip_);
         settingsToolTip_ = nullptr;
+    }
+
+    if (groupListOpenIcon_) {
+        DestroyIcon(groupListOpenIcon_);
+        groupListOpenIcon_ = nullptr;
+    }
+
+    if (groupListCloseIcon_) {
+        DestroyIcon(groupListCloseIcon_);
+        groupListCloseIcon_ = nullptr;
     }
 
     if (settingsIcon_) {
@@ -419,53 +556,49 @@ bool ClipListView::MoveSelection(int delta) const {
     return true;
 }
 
-void ClipListView::ApplyCurrentFilter() {
+void ClipListView::ApplyCurrentFilter(bool preserveSelection) {
     if (!listBox_) {
         return;
     }
 
-    const std::optional<size_t> previousSelectedItemIndex =
-        GetSelectedItemIndex();
+    const std::optional<ItemRef> previousSelectedItemRef =
+        preserveSelection ? GetSelectedItemRef() : std::nullopt;
     const std::wstring filter = ReadFilterText();
 
     SendMessageW(listBox_, LB_RESETCONTENT, 0, 0);
-    visibleItemIndices_.clear();
+    visibleItemRefs_.clear();
 
-    if (!items_) {
+    const std::optional<size_t> selectedGroupIndex = GetSelectedGroupIndex();
+    if (!groups_ || !selectedGroupIndex) {
         return;
     }
 
-    for (size_t index = 0; index < items_->size(); ++index) {
-        const ClipItem &item = (*items_)[index];
-        if (!filter.empty()) {
-            const bool effectiveSearchValues =
-                item.searchValues.value_or(searchSettings_.searchValues);
-            const bool effectiveCaseSensitiveKeys =
-                item.caseSensitiveSearchKeys.value_or(
-                    searchSettings_.caseSensitiveSearchKeys);
-            const bool effectiveCaseSensitiveValues =
-                item.caseSensitiveSearchValues.value_or(
-                    searchSettings_.caseSensitiveSearchValues);
-            const bool effectiveAdvancedSearchKeys =
-                item.advancedSearchKeys.value_or(
-                    searchSettings_.advancedSearchKeys);
-            const bool effectiveAdvancedSearchValues =
-                item.advancedSearchValues.value_or(
-                    searchSettings_.advancedSearchValues);
+    for (ItemRef itemRef : allItemRefs_) {
+        if (itemRef.groupIndex != *selectedGroupIndex) {
+            continue;
+        }
 
+        const ClipItem *item = ResolveItemRef(itemRef);
+        if (!item) {
+            continue;
+        }
+
+        if (!filter.empty()) {
             std::wstring lowerFilter;
-            if (!effectiveCaseSensitiveKeys || !effectiveCaseSensitiveValues) {
+            if (!item->caseSensitiveSearchKeys ||
+                !item->caseSensitiveSearchValues) {
                 lowerFilter = toLower(filter);
             }
 
             const std::wstring keyFilterToUse =
-                effectiveCaseSensitiveKeys ? filter : lowerFilter;
+                item->caseSensitiveSearchKeys ? filter : lowerFilter;
             const std::wstring valueFilterToUse =
-                effectiveCaseSensitiveValues ? filter : lowerFilter;
+                item->caseSensitiveSearchValues ? filter : lowerFilter;
             const std::wstring keyToUse =
-                effectiveCaseSensitiveKeys ? item.key : toLower(item.key);
+                item->caseSensitiveSearchKeys ? item->key : toLower(item->key);
             const std::wstring valueToUse =
-                effectiveCaseSensitiveValues ? item.value : toLower(item.value);
+                item->caseSensitiveSearchValues ? item->value
+                                                : toLower(item->value);
 
             auto splitBySpaces = [](const std::wstring &text) {
                 std::vector<std::wstring> parts;
@@ -497,32 +630,33 @@ void ClipListView::ApplyCurrentFilter() {
                 return true;
             };
 
-            const bool matchesKey = containsFilter(keyToUse, keyFilterToUse,
-                                                   effectiveAdvancedSearchKeys);
+            const bool matchesKey =
+                containsFilter(keyToUse, keyFilterToUse,
+                               item->advancedSearchKeys);
 
             const bool matchesValue =
-                effectiveSearchValues &&
+                item->searchValues &&
                 containsFilter(valueToUse, valueFilterToUse,
-                               effectiveAdvancedSearchValues);
+                               item->advancedSearchValues);
 
             if (!matchesKey && !matchesValue) {
                 continue;
             }
         }
 
-        visibleItemIndices_.push_back(index);
-        const std::wstring displayText = item.GetDisplayText();
+        visibleItemRefs_.push_back(itemRef);
+        const std::wstring displayText = item->GetDisplayText();
         SendMessageW(listBox_, LB_ADDSTRING, 0,
                      reinterpret_cast<LPARAM>(displayText.c_str()));
     }
 
-    if (previousSelectedItemIndex) {
+    if (previousSelectedItemRef) {
         const auto selectedItem =
-            std::find(visibleItemIndices_.begin(), visibleItemIndices_.end(),
-                      *previousSelectedItemIndex);
-        if (selectedItem != visibleItemIndices_.end()) {
+            std::find(visibleItemRefs_.begin(), visibleItemRefs_.end(),
+                      *previousSelectedItemRef);
+        if (selectedItem != visibleItemRefs_.end()) {
             const int selectedRow =
-                static_cast<int>(selectedItem - visibleItemIndices_.begin());
+                static_cast<int>(selectedItem - visibleItemRefs_.begin());
             SendMessageW(listBox_, LB_SETCURSEL, selectedRow, 0);
             return;
         }
@@ -548,6 +682,159 @@ std::wstring ClipListView::ReadFilterText() const {
     std::vector<wchar_t> buffer(static_cast<size_t>(textLength) + 1, L'\0');
     GetWindowTextW(filterTextBox_, buffer.data(), textLength + 1);
     return std::wstring(buffer.data());
+}
+
+void ClipListView::PopulateGroupList() {
+    if (!groupListBox_) {
+        return;
+    }
+
+    SendMessageW(groupListBox_, LB_RESETCONTENT, 0, 0);
+    if (!groups_) {
+        return;
+    }
+
+    for (const Group &group : *groups_) {
+        const std::wstring displayName =
+            group.name.empty() ? group.key : group.name;
+        SendMessageW(groupListBox_, LB_ADDSTRING, 0,
+                     reinterpret_cast<LPARAM>(displayName.c_str()));
+    }
+
+    UpdateGroupListSelection();
+}
+
+void ClipListView::SelectGroupByKeyOrFallback(
+    const std::wstring &preferredGroupKey) {
+    selectedGroupKey_.clear();
+    if (!groups_ || groups_->empty()) {
+        return;
+    }
+
+    auto findGroupKey = [this](const std::wstring &groupKey) {
+        return std::find_if(groups_->begin(), groups_->end(),
+                            [&groupKey](const Group &group) {
+                                return group.key == groupKey;
+                            });
+    };
+
+    if (!preferredGroupKey.empty()) {
+        auto preferredGroup = findGroupKey(preferredGroupKey);
+        if (preferredGroup != groups_->end()) {
+            selectedGroupKey_ = preferredGroup->key;
+            return;
+        }
+    }
+
+    auto defaultGroup = findGroupKey(defaultGroupKey);
+    if (defaultGroup != groups_->end()) {
+        selectedGroupKey_ = defaultGroup->key;
+        return;
+    }
+
+    selectedGroupKey_ = groups_->front().key;
+}
+
+void ClipListView::SelectGroupAtRow(int row) {
+    if (!groups_ || row < 0 || row >= static_cast<int>(groups_->size())) {
+        return;
+    }
+
+    const std::wstring newGroupKey = (*groups_)[row].key;
+    if (newGroupKey == selectedGroupKey_) {
+        UpdateGroupListSelection();
+        return;
+    }
+
+    selectedGroupKey_ = newGroupKey;
+    UpdateSelectedGroupText();
+    UpdateGroupListSelection();
+    ApplyCurrentFilter(false);
+}
+
+void ClipListView::UpdateSelectedGroupText() {
+    if (!selectedGroupTextBox_) {
+        return;
+    }
+
+    const std::wstring displayName = GetSelectedGroupDisplayName();
+    SetWindowTextW(selectedGroupTextBox_, displayName.c_str());
+}
+
+void ClipListView::UpdateGroupListSelection() const {
+    if (!groupListBox_) {
+        return;
+    }
+
+    const std::optional<size_t> selectedGroupIndex = GetSelectedGroupIndex();
+    if (!selectedGroupIndex) {
+        SendMessageW(groupListBox_, LB_SETCURSEL, static_cast<WPARAM>(-1), 0);
+        return;
+    }
+
+    SendMessageW(groupListBox_, LB_SETCURSEL, *selectedGroupIndex, 0);
+}
+
+void ClipListView::UpdateGroupToggleIcon() const {
+    if (!groupToggleButton_) {
+        return;
+    }
+
+    HICON icon = groupListVisible_ ? groupListCloseIcon_ : groupListOpenIcon_;
+    SendMessageW(groupToggleButton_, BM_SETIMAGE, IMAGE_ICON,
+                 reinterpret_cast<LPARAM>(icon));
+}
+
+std::optional<size_t> ClipListView::GetSelectedGroupIndex() const {
+    if (!groups_) {
+        return std::nullopt;
+    }
+
+    for (size_t groupIndex = 0; groupIndex < groups_->size(); ++groupIndex) {
+        if ((*groups_)[groupIndex].key == selectedGroupKey_) {
+            return groupIndex;
+        }
+    }
+
+    return std::nullopt;
+}
+
+std::wstring ClipListView::GetSelectedGroupDisplayName() const {
+    const std::optional<size_t> selectedGroupIndex = GetSelectedGroupIndex();
+    if (!groups_ || !selectedGroupIndex) {
+        return L"";
+    }
+
+    const Group &group = (*groups_)[*selectedGroupIndex];
+    return group.name.empty() ? group.key : group.name;
+}
+
+std::optional<ClipListView::ItemRef> ClipListView::GetSelectedItemRef() const {
+    if (!listBox_) {
+        return std::nullopt;
+    }
+
+    const int selectedRow =
+        static_cast<int>(SendMessageW(listBox_, LB_GETCURSEL, 0, 0));
+    if (selectedRow == LB_ERR || selectedRow < 0 ||
+        selectedRow >= static_cast<int>(visibleItemRefs_.size())) {
+        return std::nullopt;
+    }
+
+    return visibleItemRefs_[selectedRow];
+}
+
+const ClipItem *ClipListView::ResolveItemRef(ItemRef itemRef) const {
+    if (!groups_ || itemRef.groupIndex >= groups_->size()) {
+        return nullptr;
+    }
+
+    const Group &group = (*groups_)[itemRef.groupIndex];
+    if (itemRef.itemIndex >= group.items.size()) {
+        return nullptr;
+    }
+
+    return &group.items[itemRef.itemIndex];
 }
 
 } // namespace ClipDeck

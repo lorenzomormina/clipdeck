@@ -3,6 +3,8 @@
 IDI_ICON1 ICON "icons/clipdeck.ico"
 IDI_BACK ICON "icons/back.ico"
 IDI_CANCEL ICON "icons/cancel.ico"
+IDI_GROUP_LIST_CLOSE ICON "icons/group-list-close.ico"
+IDI_GROUP_LIST_OPEN ICON "icons/group-list-open.ico"
 IDI_REFRESH ICON "icons/refresh.ico"
 IDI_RESET ICON "icons/reset.ico"
 IDI_SAVE ICON "icons/save.ico"

@@ -46,7 +46,6 @@ void MainWindow::ApplyConfig() {
     RegisterGlobalHotkey();
 
     clipListView_.SetMainWindowSettings(config_.mainWindowSettings);
-    clipListView_.SetSearchSettings(config_.searchSettings);
     SetWindowPos(hwnd_, nullptr, 0, 0, config_.mainWindowSettings.width,
                  config_.mainWindowSettings.height,
                  SWP_NOMOVE | SWP_NOZORDER | SWP_NOACTIVATE);
@@ -55,7 +54,7 @@ void MainWindow::ApplyConfig() {
     GetClientRect(hwnd_, &clientRect);
     clipListView_.Layout(clientRect.right - clientRect.left,
                          clientRect.bottom - clientRect.top);
-    clipListView_.SetItems(config_.items);
+    clipListView_.SetGroups(config_.groups);
 }
 
 void MainWindow::SetOpenSettingsCallback(std::function<bool()> callback) {
@@ -199,12 +198,11 @@ LRESULT MainWindow::HandleMessage(UINT message, WPARAM wParam, LPARAM lParam) {
 }
 
 LRESULT MainWindow::OnCreate() {
-    if (!clipListView_.Create(hwnd_, instance_, config_.mainWindowSettings,
-                              config_.searchSettings)) {
+    if (!clipListView_.Create(hwnd_, instance_, config_.mainWindowSettings)) {
         return -1;
     }
 
-    clipListView_.SetItems(config_.items);
+    clipListView_.SetGroups(config_.groups);
     return 0;
 }
 
@@ -276,13 +274,12 @@ void MainWindow::OnHotkey() {
 }
 
 void MainWindow::ActivateSelectedItem(bool copyOnly) {
-    const auto selectedIndex = clipListView_.GetSelectedItemIndex();
-    if (!selectedIndex || *selectedIndex >= config_.items.size()) {
+    const ClipItem *selectedItem = clipListView_.GetSelectedItem();
+    if (!selectedItem) {
         return;
     }
 
-    const ClipItem &selectedItem = config_.items[*selectedIndex];
-    const std::wstring &selectedValue = selectedItem.value;
+    const std::wstring &selectedValue = selectedItem->value;
     if (!CopyTextToClipboard(selectedValue)) {
         return;
     }
@@ -291,14 +288,9 @@ void MainWindow::ActivateSelectedItem(bool copyOnly) {
         return;
     }
 
-    const bool effectiveAutoClose =
-        selectedItem.autoClose.value_or(config_.activationSettings.autoClose);
-    const bool effectiveAutoPaste =
-        selectedItem.autoPaste.value_or(config_.activationSettings.autoPaste);
-
-    if (effectiveAutoClose) {
+    if (selectedItem->autoClose) {
         HideWindow();
-        if (effectiveAutoPaste) {
+        if (selectedItem->autoPaste) {
             PasteToWindow(lastFocus_);
         }
     }

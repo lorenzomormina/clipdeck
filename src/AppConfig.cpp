@@ -3,6 +3,7 @@
 #include <algorithm>
 #include <cwctype>
 #include <fstream>
+#include <optional>
 #include <sstream>
 #include <vector>
 
@@ -13,7 +14,6 @@ namespace ClipDeck {
 namespace {
 
 constexpr wchar_t kConfigFileName[] = L"settings.txt";
-constexpr wchar_t kIconFileName[] = L"icon.ico";
 
 enum class ParseSection {
     None,
@@ -23,7 +23,36 @@ enum class ParseSection {
     SettingsWindow,
     Activation,
     Search,
+    Group,
     Item,
+};
+
+struct ParsedGroup {
+    std::wstring key;
+    std::wstring name;
+    std::optional<bool> hidden;
+    std::optional<bool> searchValues;
+    std::optional<bool> autoClose;
+    std::optional<bool> autoPaste;
+    std::optional<bool> caseSensitiveSearchKeys;
+    std::optional<bool> caseSensitiveSearchValues;
+    std::optional<bool> advancedSearchKeys;
+    std::optional<bool> advancedSearchValues;
+};
+
+struct ParsedItem {
+    std::wstring group;
+    std::wstring key;
+    std::wstring value;
+    std::optional<bool> hidden;
+    std::optional<bool> searchValues;
+    std::optional<bool> autoClose;
+    std::optional<bool> autoPaste;
+    std::optional<bool> caseSensitiveSearchKeys;
+    std::optional<bool> caseSensitiveSearchValues;
+    std::optional<bool> advancedSearchKeys;
+    std::optional<bool> advancedSearchValues;
+    size_t loadOrder = 0;
 };
 
 std::filesystem::path GetExecutableDirectory() {
@@ -247,6 +276,32 @@ bool ParseIntValue(const std::wstring &valueToken, int *parsed) {
     }
 }
 
+bool ParseConfigString(const std::wstring &valueToken, std::wstring *parsed) {
+    if (ParseQuotedString(valueToken, parsed)) {
+        return true;
+    }
+
+    if (!valueToken.empty() && valueToken.front() == L'"') {
+        return false;
+    }
+
+    *parsed = valueToken;
+    return true;
+}
+
+void ApplyOptionalBoolSetting(std::optional<bool> *target,
+                              const std::wstring &valueToken) {
+    if (valueToken.empty()) {
+        target->reset();
+        return;
+    }
+
+    bool parsed = false;
+    if (ParseBoolValue(valueToken, &parsed)) {
+        *target = parsed;
+    }
+}
+
 void ApplyAppSetting(AppConfig *config, const std::wstring &key,
                      const std::wstring &valueToken) {
     bool parsed = false;
@@ -294,6 +349,10 @@ void ApplyMainWindowSetting(AppConfig *config, const std::wstring &key,
     } else if (key == L"KeepVisibleWhileConfiguring") {
         if (ParseBoolValue(valueToken, &parsed)) {
             config->mainWindowSettings.keepVisibleWhileConfiguring = parsed;
+        }
+    } else if (key == L"GroupListBoxWidth") {
+        if (ParseIntValue(valueToken, &parsedInt)) {
+            config->mainWindowSettings.groupListBoxWidth = parsedInt;
         }
     }
 }
@@ -356,8 +415,53 @@ void ApplySearchSetting(AppConfig *config, const std::wstring &key,
     }
 }
 
-void ApplyItemSetting(ClipItem *item, const std::wstring &key,
+void ApplyGroupSetting(ParsedGroup *group, const std::wstring &key,
+                       const std::wstring &valueToken) {
+    if (key == L"Key") {
+        std::wstring parsed;
+        if (ParseConfigString(valueToken, &parsed)) {
+            group->key = parsed;
+        }
+        return;
+    }
+
+    if (key == L"Name") {
+        std::wstring parsed;
+        if (ParseConfigString(valueToken, &parsed)) {
+            group->name = parsed;
+        }
+        return;
+    }
+
+    if (key == L"Hidden") {
+        ApplyOptionalBoolSetting(&group->hidden, valueToken);
+    } else if (key == L"Search.SearchValues") {
+        ApplyOptionalBoolSetting(&group->searchValues, valueToken);
+    } else if (key == L"Search.CaseSensitiveSearchKeys") {
+        ApplyOptionalBoolSetting(&group->caseSensitiveSearchKeys, valueToken);
+    } else if (key == L"Search.CaseSensitiveSearchValues") {
+        ApplyOptionalBoolSetting(&group->caseSensitiveSearchValues, valueToken);
+    } else if (key == L"Search.AdvancedSearchKeys") {
+        ApplyOptionalBoolSetting(&group->advancedSearchKeys, valueToken);
+    } else if (key == L"Search.AdvancedSearchValues") {
+        ApplyOptionalBoolSetting(&group->advancedSearchValues, valueToken);
+    } else if (key == L"Activation.AutoClose") {
+        ApplyOptionalBoolSetting(&group->autoClose, valueToken);
+    } else if (key == L"Activation.AutoPaste") {
+        ApplyOptionalBoolSetting(&group->autoPaste, valueToken);
+    }
+}
+
+void ApplyItemSetting(ParsedItem *item, const std::wstring &key,
                       const std::wstring &valueToken) {
+    if (key == L"Group") {
+        std::wstring parsed;
+        if (ParseConfigString(valueToken, &parsed)) {
+            item->group = parsed;
+        }
+        return;
+    }
+
     if (key == L"Key") {
         std::wstring parsed;
         if (ParseQuotedString(valueToken, &parsed)) {
@@ -374,53 +478,123 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
         return;
     }
 
-    bool parsed = false;
     if (key == L"Hidden") {
-        if (ParseBoolValue(valueToken, &parsed)) {
-            item->hidden = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->hidden, valueToken);
     } else if (key == L"Search.SearchValues") {
-        if (valueToken.empty()) {
-            item->searchValues.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->searchValues = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->searchValues, valueToken);
     } else if (key == L"Search.CaseSensitiveSearchKeys") {
-        if (valueToken.empty()) {
-            item->caseSensitiveSearchKeys.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->caseSensitiveSearchKeys = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->caseSensitiveSearchKeys, valueToken);
     } else if (key == L"Search.CaseSensitiveSearchValues") {
-        if (valueToken.empty()) {
-            item->caseSensitiveSearchValues.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->caseSensitiveSearchValues = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->caseSensitiveSearchValues, valueToken);
     } else if (key == L"Search.AdvancedSearchKeys") {
-        if (valueToken.empty()) {
-            item->advancedSearchKeys.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->advancedSearchKeys = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->advancedSearchKeys, valueToken);
     } else if (key == L"Search.AdvancedSearchValues") {
-        if (valueToken.empty()) {
-            item->advancedSearchValues.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->advancedSearchValues = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->advancedSearchValues, valueToken);
     } else if (key == L"Activation.AutoClose") {
-        if (valueToken.empty()) {
-            item->autoClose.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->autoClose = parsed;
-        }
+        ApplyOptionalBoolSetting(&item->autoClose, valueToken);
     } else if (key == L"Activation.AutoPaste") {
-        if (valueToken.empty()) {
-            item->autoPaste.reset();
-        } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->autoPaste = parsed;
+        ApplyOptionalBoolSetting(&item->autoPaste, valueToken);
+    }
+}
+
+std::optional<size_t> FindGroupIndex(const std::vector<Group> &groups,
+                                     const std::wstring &key) {
+    for (size_t index = 0; index < groups.size(); ++index) {
+        if (groups[index].key == key) {
+            return index;
         }
+    }
+
+    return std::nullopt;
+}
+
+Group MakeDefaultGroup(const AppConfig &config) {
+    Group group;
+    group.key = defaultGroupKey;
+    group.name = defaultGroupName;
+    group.hidden = false;
+    group.searchValues = config.searchSettings.searchValues;
+    group.autoClose = config.activationSettings.autoClose;
+    group.autoPaste = config.activationSettings.autoPaste;
+    group.caseSensitiveSearchKeys =
+        config.searchSettings.caseSensitiveSearchKeys;
+    group.caseSensitiveSearchValues =
+        config.searchSettings.caseSensitiveSearchValues;
+    group.advancedSearchKeys = config.searchSettings.advancedSearchKeys;
+    group.advancedSearchValues = config.searchSettings.advancedSearchValues;
+    return group;
+}
+
+Group ResolveGroup(const ParsedGroup &parsed, const AppConfig &config) {
+    Group group;
+    group.key = parsed.key;
+    group.name = parsed.name.empty() ? parsed.key : parsed.name;
+    group.hidden = parsed.hidden.value_or(false);
+    group.searchValues =
+        parsed.searchValues.value_or(config.searchSettings.searchValues);
+    group.autoClose =
+        parsed.autoClose.value_or(config.activationSettings.autoClose);
+    group.autoPaste =
+        parsed.autoPaste.value_or(config.activationSettings.autoPaste);
+    group.caseSensitiveSearchKeys = parsed.caseSensitiveSearchKeys.value_or(
+        config.searchSettings.caseSensitiveSearchKeys);
+    group.caseSensitiveSearchValues = parsed.caseSensitiveSearchValues.value_or(
+        config.searchSettings.caseSensitiveSearchValues);
+    group.advancedSearchKeys = parsed.advancedSearchKeys.value_or(
+        config.searchSettings.advancedSearchKeys);
+    group.advancedSearchValues = parsed.advancedSearchValues.value_or(
+        config.searchSettings.advancedSearchValues);
+    return group;
+}
+
+ClipItem ResolveItem(const ParsedItem &parsed, const Group &group) {
+    ClipItem item;
+    item.group = group.key;
+    item.key = parsed.key;
+    item.value = parsed.value;
+    item.hidden = parsed.hidden.value_or(group.hidden);
+    item.searchValues = parsed.searchValues.value_or(group.searchValues);
+    item.autoClose = parsed.autoClose.value_or(group.autoClose);
+    item.autoPaste = parsed.autoPaste.value_or(group.autoPaste);
+    item.caseSensitiveSearchKeys =
+        parsed.caseSensitiveSearchKeys.value_or(group.caseSensitiveSearchKeys);
+    item.caseSensitiveSearchValues = parsed.caseSensitiveSearchValues.value_or(
+        group.caseSensitiveSearchValues);
+    item.advancedSearchKeys =
+        parsed.advancedSearchKeys.value_or(group.advancedSearchKeys);
+    item.advancedSearchValues =
+        parsed.advancedSearchValues.value_or(group.advancedSearchValues);
+    item.loadOrder = parsed.loadOrder;
+    return item;
+}
+
+void ResolveGroupsAndItems(AppConfig *config,
+                           const std::vector<ParsedGroup> &parsedGroups,
+                           const std::vector<ParsedItem> &parsedItems) {
+    config->groups.clear();
+    config->groups.push_back(MakeDefaultGroup(*config));
+
+    for (const ParsedGroup &parsedGroup : parsedGroups) {
+        if (parsedGroup.key.empty() || parsedGroup.key == defaultGroupKey ||
+            FindGroupIndex(config->groups, parsedGroup.key)) {
+            continue;
+        }
+
+        config->groups.push_back(ResolveGroup(parsedGroup, *config));
+    }
+
+    for (const ParsedItem &parsedItem : parsedItems) {
+        std::optional<size_t> groupIndex;
+        if (!parsedItem.group.empty()) {
+            groupIndex = FindGroupIndex(config->groups, parsedItem.group);
+        }
+
+        if (!groupIndex) {
+            groupIndex = 0;
+        }
+
+        Group &group = config->groups[*groupIndex];
+        group.items.push_back(ResolveItem(parsedItem, group));
     }
 }
 
@@ -434,7 +608,10 @@ void ParseConfigFile(const std::filesystem::path &settingsPath,
     std::wistringstream configStream(configText);
 
     ParseSection currentSection = ParseSection::None;
-    ClipItem *currentItem = nullptr;
+    ParsedGroup *currentGroup = nullptr;
+    ParsedItem *currentItem = nullptr;
+    std::vector<ParsedGroup> parsedGroups;
+    std::vector<ParsedItem> parsedItems;
 
     std::wstring rawLine;
     while (std::getline(configStream, rawLine)) {
@@ -451,28 +628,42 @@ void ParseConfigFile(const std::filesystem::path &settingsPath,
         if (line.front() == L'[' && line.back() == L']') {
             if (line == L"[App]") {
                 currentSection = ParseSection::App;
+                currentGroup = nullptr;
                 currentItem = nullptr;
             } else if (line == L"[Hotkey]") {
                 currentSection = ParseSection::Hotkey;
+                currentGroup = nullptr;
                 currentItem = nullptr;
             } else if (line == L"[MainWindow]") {
                 currentSection = ParseSection::MainWindow;
+                currentGroup = nullptr;
                 currentItem = nullptr;
             } else if (line == L"[SettingsWindow]") {
                 currentSection = ParseSection::SettingsWindow;
+                currentGroup = nullptr;
                 currentItem = nullptr;
             } else if (line == L"[Activation]") {
                 currentSection = ParseSection::Activation;
+                currentGroup = nullptr;
                 currentItem = nullptr;
             } else if (line == L"[Search]") {
                 currentSection = ParseSection::Search;
+                currentGroup = nullptr;
+                currentItem = nullptr;
+            } else if (line == L"[[Group]]") {
+                currentSection = ParseSection::Group;
+                parsedGroups.emplace_back();
+                currentGroup = &parsedGroups.back();
                 currentItem = nullptr;
             } else if (line == L"[[Item]]") {
                 currentSection = ParseSection::Item;
-                config->items.emplace_back();
-                currentItem = &config->items.back();
+                parsedItems.emplace_back();
+                parsedItems.back().loadOrder = parsedItems.size() - 1;
+                currentGroup = nullptr;
+                currentItem = &parsedItems.back();
             } else {
                 currentSection = ParseSection::None;
+                currentGroup = nullptr;
                 currentItem = nullptr;
             }
             continue;
@@ -503,6 +694,11 @@ void ParseConfigFile(const std::filesystem::path &settingsPath,
         case ParseSection::Search:
             ApplySearchSetting(config, key, valueToken);
             break;
+        case ParseSection::Group:
+            if (currentGroup != nullptr) {
+                ApplyGroupSetting(currentGroup, key, valueToken);
+            }
+            break;
         case ParseSection::Item:
             if (currentItem != nullptr) {
                 ApplyItemSetting(currentItem, key, valueToken);
@@ -512,6 +708,8 @@ void ParseConfigFile(const std::filesystem::path &settingsPath,
             break;
         }
     }
+
+    ResolveGroupsAndItems(config, parsedGroups, parsedItems);
 }
 
 } // namespace
@@ -522,6 +720,9 @@ AppConfig LoadAppConfig() {
     config.settingsPath = config.executableDirectory / kConfigFileName;
 
     ParseConfigFile(config.settingsPath, &config);
+    if (config.groups.empty()) {
+        config.groups.push_back(MakeDefaultGroup(config));
+    }
 
     return config;
 }

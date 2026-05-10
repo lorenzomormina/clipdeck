@@ -1,23 +1,27 @@
 #pragma once
 
 #include <filesystem>
-#include <optional>
 #include <string>
 #include <vector>
 
 namespace ClipDeck {
 
+const std::wstring defaultGroupKey = L"default";
+const std::wstring defaultGroupName = L"(no group)";
+
 struct ClipItem {
     std::wstring key;
     std::wstring value;
+    std::wstring group = defaultGroupKey;
     bool hidden = false;
-    std::optional<bool> searchValues;
-    std::optional<bool> autoClose;
-    std::optional<bool> autoPaste;
-    std::optional<bool> caseSensitiveSearchKeys;
-    std::optional<bool> caseSensitiveSearchValues;
-    std::optional<bool> advancedSearchKeys;
-    std::optional<bool> advancedSearchValues;
+    bool searchValues = false;
+    bool autoClose = true;
+    bool autoPaste = false;
+    bool caseSensitiveSearchKeys = false;
+    bool caseSensitiveSearchValues = true;
+    bool advancedSearchKeys = false;
+    bool advancedSearchValues = false;
+    size_t loadOrder = 0;
 
     std::wstring GetDisplayText() const {
         if (hidden) {
@@ -25,6 +29,20 @@ struct ClipItem {
         }
         return L"[" + key + L"] " + value;
     }
+};
+
+struct Group {
+    std::wstring key = defaultGroupKey;
+    std::wstring name = defaultGroupName;
+    bool hidden = false;
+    bool searchValues = false;
+    bool autoClose = true;
+    bool autoPaste = false;
+    bool caseSensitiveSearchKeys = false;
+    bool caseSensitiveSearchValues = true;
+    bool advancedSearchKeys = false;
+    bool advancedSearchValues = false;
+    std::vector<ClipItem> items;
 };
 
 struct AppSettings {
@@ -42,6 +60,7 @@ struct MainWindowSettings {
     int textBoxMargin = 6;
     bool hideOnBlur = true;
     bool keepVisibleWhileConfiguring = true;
+    int groupListBoxWidth = 100;
 };
 
 struct SettingsWindowSettings {
@@ -72,7 +91,7 @@ struct AppConfig {
     SettingsWindowSettings settingsWindowSettings;
     ActivationSettings activationSettings;
     SearchSettings searchSettings;
-    std::vector<ClipItem> items;
+    std::vector<Group> groups;
 };
 
 AppConfig LoadAppConfig();

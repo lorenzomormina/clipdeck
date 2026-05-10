@@ -4,10 +4,12 @@
 #define IDI_ICON1 101
 #define IDI_BACK 102
 #define IDI_CANCEL 103
-#define IDI_REFRESH 104
-#define IDI_RESET 105
-#define IDI_SAVE 106
-#define IDI_SETTINGS 107
-#define IDI_SUCCESS 108
+#define IDI_GROUP_LIST_CLOSE 104
+#define IDI_GROUP_LIST_OPEN 105
+#define IDI_REFRESH 106
+#define IDI_RESET 107
+#define IDI_SAVE 108
+#define IDI_SETTINGS 109
+#define IDI_SUCCESS 110
 
 #endif

@@ -34,10 +34,11 @@ Today, in code, it:
 * uses one top-level main window for snippet selection
 * uses one separate top-level settings window for raw settings editing
 * copies the selected value to the clipboard
-* optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using per-item `Activation.AutoClose` / `Activation.AutoPaste` overrides when present
+* optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using effective per-item activation settings resolved during config load
 * supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected value without closing or auto-pasting
 * auto-paste only runs in the effective `AutoClose=true` activation flow
-* supports key-based filtering and optional value-based filtering through `Search.SearchValues`, with separate key/value case-sensitivity and advanced-search controls
+* supports grouped config items through a main-window group selector that filters the snippet list to the selected group
+* supports key-based filtering and optional value-based filtering through effective per-item `Search.SearchValues`, with separate key/value case-sensitivity and advanced-search controls
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
 
@@ -50,7 +51,7 @@ This section reflects the current code in `main.cpp`, `ClipDeckApp.*`, `MainWind
 1. `wWinMain` loads `AppConfig` via `LoadAppConfig()` and constructs `ClipDeckApp`.
 2. `ClipDeckApp::Run()` asks `MainWindow` to create/start the main window, then owns the `GetMessageW` loop.
 3. `MainWindow::Create()` creates the main HWND, then shows or hides it based on `[App].StartHidden`.
-4. On `WM_CREATE`, the main window creates only the snippet-list child controls from `ClipListView`.
+4. On `WM_CREATE`, the main window creates the snippet-list and group-selector child controls from `ClipListView`.
 5. After window creation, the app adds a tray icon and registers a global hotkey.
 6. The hotkey is registered from `[Hotkey].Open` in `settings.txt`.
    Invalid hotkey text shows a message box and does not fall back to a hidden default.
@@ -63,32 +64,35 @@ This section reflects the current code in `main.cpp`, `ClipDeckApp.*`, `MainWind
    * `Config` still shows a placeholder message box
 9. The main window shows:
 
-   * a `LISTBOX`
+   * a top group selector row with an icon button and selected-group text box
+   * an optional left-side group `LISTBOX`
+   * a snippet `LISTBOX`
    * a filter `EDIT`
    * a settings icon button
-10. Typing in the filter box starts a 100 ms debounce timer. Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `SearchValues` setting is true. Key matching uses the effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Each effective search setting is computed independently from the item first, falling back to `[Search]` when the item does not override it.
-11. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
-12. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
-13. Activation copies the selected value to the clipboard.
-14. In normal activation, the app computes effective `AutoClose` and `AutoPaste` from the selected item first, falling back to `[Activation]` for each missing item field.
-15. If effective `AutoClose=true`, the main window hides after normal activation.
-16. If effective `AutoClose=true` and effective `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
-17. In copy-only activation, the app ignores `AutoClose` and `AutoPaste`: it does not hide the main window and does not auto-paste.
-18. Clicking the settings button makes `MainWindow` request settings opening through `ClipDeckApp`, which owns the separate top-level settings window.
+10. The group list is hidden initially. The selected group defaults to the default group when present, otherwise the first available group. Toggling the group button shows or hides the group list; selecting a group updates the selected-group text box and filters the snippet list to that group.
+11. Typing in the filter box starts a 100 ms debounce timer. Filtering only considers items in the selected group. It always checks `ClipItem.key`. It also checks `ClipItem.value` when the already-resolved effective `SearchValues` setting is true. Key matching uses the item’s already-resolved effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the item’s already-resolved effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings.
+12. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
+13. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
+14. Activation copies the selected value to the clipboard.
+15. In normal activation, the app uses the selected item’s already-resolved effective `AutoClose` and `AutoPaste` values.
+16. If effective `AutoClose=true`, the main window hides after normal activation.
+17. If effective `AutoClose=true` and effective `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
+18. In copy-only activation, the app ignores `AutoClose` and `AutoPaste`: it does not hide the main window and does not auto-paste.
+19. Clicking the settings button makes `MainWindow` request settings opening through `ClipDeckApp`, which owns the separate top-level settings window.
     If it does not exist yet, the app creates it first.
     If it already exists, the app shows it and brings it to the foreground.
-19. After opening settings from the main window, the main window hides only when `HideOnBlur=true` and `KeepVisibleWhileConfiguring=false`.
-20. When shown from a hidden state, the settings window reloads the raw settings file text into a multiline `EDIT` control.
-21. `Save` or `Ctrl+S` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
-22. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
+20. After opening settings from the main window, the main window hides only when `HideOnBlur=true` and `KeepVisibleWhileConfiguring=false`.
+21. When shown from a hidden state, the settings window reloads the raw settings file text into a multiline `EDIT` control.
+22. `Save` or `Ctrl+S` writes the raw editor text back to disk, reloads `AppConfig`, and keeps the settings window open.
+23. Leaving settings through `Cancel`, `Esc`, or `WM_CLOSE` goes through the dirty-check flow:
 
    * if not dirty, hide the settings window
    * if dirty, show `Yes / No / Cancel`
    * `Yes` saves, reloads config, then hides the settings window
    * `No` discards editor changes, then hides the settings window
    * `Cancel` keeps the settings window open
-23. The main window auto-hides on focus loss only when `HideOnBlur=true`. When the focus loss is caused by opening the settings window, `KeepVisibleWhileConfiguring=true` keeps the main window visible.
-24. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
+24. The main window auto-hides on focus loss only when `HideOnBlur=true`. When the focus loss is caused by opening the settings window, `KeepVisibleWhileConfiguring=true` keeps the main window visible.
+25. The settings window is its own top-level HWND and does not depend on mounting or unmounting controls inside the main window.
 
 ---
 
@@ -107,21 +111,27 @@ The application currently has two concrete top-level windows:
 
 **Existing controls**
 
-* `LISTBOX` for visible items
+* top group selector row with an icon button and read-only selected-group text box
+* hidden-by-default left-side group `LISTBOX`
+* `LISTBOX` for visible items in the selected group
 * single-line filter `EDIT`
 * settings icon `BUTTON`
 
 **Observed behavior**
 
+* group selector row sits at the top of the client area
 * filter textbox sits at the bottom of the client area
 * settings button sits next to the filter textbox
-* list box fills the upper area
+* snippet list box fills the area between the group row and bottom filter row
+* showing the group list places it on the left and keeps the snippet list on the right
+* selecting a group filters snippets to that group and updates the selected-group text box
 * showing or activating the main window through the app flow focuses the filter textbox
 * showing or activating the main window selects the first visible list item when any filtered items are present
 * pressing Up/Down while the filter textbox is focused moves the listbox selection without moving focus out of the filter textbox
 * printable text typed while the list box has focus is redirected into the filter textbox
 * filtering is debounced
-* filtering uses effective item-level search settings with `[Search]` fallbacks
+* filtering is scoped to the selected group
+* filtering uses effective item-level search settings that were resolved during config load
 * after filtering, the selected underlying item is preserved if it remains visible; otherwise the first visible result is selected when any results are present
 * activation is by double click or `Enter` in the list box
 * holding `Ctrl` during double click or `Enter` performs copy-only activation: copy to clipboard without closing or auto-pasting
@@ -175,11 +185,12 @@ The application currently has two concrete top-level windows:
 * searchable key/value list UI
 * clipboard copy on item activation
 * copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`
-* optional auto-close after activation, with per-item `Activation.AutoClose` overrides
-* optional auto-paste attempt back to the previously focused window, with per-item `Activation.AutoPaste` overrides
+* optional auto-close after activation, with per-group and per-item `Activation.AutoClose` overrides resolved during config load
+* optional auto-paste attempt back to the previously focused window, with per-group and per-item `Activation.AutoPaste` overrides resolved during config load
 * raw settings text editor with save/discard confirmation
 * config reload after settings save or tray reload
-* value search is implemented through effective `SearchValues`, with per-item `Search.SearchValues` overrides falling back to `[Search]`
+* grouped `[[Group]]` / `[[Item]]` config model, with main-window group selection
+* value search is implemented through effective `SearchValues`, with group/item overrides resolved during config load
 * key/value search case sensitivity is configurable through effective `CaseSensitiveSearchKeys` and `CaseSensitiveSearchValues`
 * key/value advanced search is configurable independently through effective `AdvancedSearchKeys` and `AdvancedSearchValues`
 
@@ -223,6 +234,7 @@ Margin=4
 TextBoxMargin=6
 HideOnBlur=true
 KeepVisibleWhileConfiguring=true
+GroupListBoxWidth=100
 
 [SettingsWindow]
 Width=800
@@ -240,7 +252,20 @@ CaseSensitiveSearchValues=true
 AdvancedSearchKeys=false
 AdvancedSearchValues=false
 
+[[Group]]
+Key=g1
+Name="Group 1"
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
 [[Item]]
+Group=
 Key="mykey"
 Value="myvalue"
 Hidden=
@@ -255,12 +280,13 @@ Search.AdvancedSearchValues=
 
 ### Current parser behavior
 
-* sections recognized: `[App]`, `[Hotkey]`, `[MainWindow]`, `[SettingsWindow]`, `[Activation]`, `[Search]`, `[[Item]]`
+* sections recognized: `[App]`, `[Hotkey]`, `[MainWindow]`, `[SettingsWindow]`, `[Activation]`, `[Search]`, `[[Group]]`, `[[Item]]`
 * inline comments beginning with `;` or `#` are stripped when outside quotes
 * quoted strings support `\n`, `\"`, and `\\`
 * unknown sections and unparseable lines are ignored
 * invalid values usually fall back silently to defaults rather than surfacing an error
-* empty item-level optional override values are parsed as "no override" for that item field
+* empty group/item override values are parsed as "no override" for that field
+* `LoadAppConfig()` resolves group and item fallback values into concrete `bool` fields on `Group` and `ClipItem`
 
 ### Fields currently consumed by app behavior
 
@@ -278,6 +304,7 @@ Search.AdvancedSearchValues=
 * `Margin`, `TextBoxMargin`: used by `ClipListView` layout
 * `HideOnBlur`: used to decide whether the main window hides when it loses focus
 * `KeepVisibleWhileConfiguring`: used when opening the settings window; if true, the main window remains visible while settings is open
+* `GroupListBoxWidth`: used by the optional left-side group list in the main window
 
 #### `[SettingsWindow]`
 
@@ -297,6 +324,21 @@ Search.AdvancedSearchValues=
 * `AdvancedSearchKeys`: used as the global default for key advanced-search matching
 * `AdvancedSearchValues`: used as the global default for value advanced-search matching
 
+#### `[[Group]]`
+
+* `Key`: group key referenced by `[[Item]].Group`; empty, missing, duplicate, or `default` group keys are ignored
+* `Name`: group display name used by the main-window group selector
+* `Hidden`: optional group default for item value masking; missing or empty means false
+* `Search.SearchValues`: optional group override for `[Search].SearchValues`
+* `Search.CaseSensitiveSearchKeys`: optional group override for `[Search].CaseSensitiveSearchKeys`
+* `Search.CaseSensitiveSearchValues`: optional group override for `[Search].CaseSensitiveSearchValues`
+* `Search.AdvancedSearchKeys`: optional group override for `[Search].AdvancedSearchKeys`
+* `Search.AdvancedSearchValues`: optional group override for `[Search].AdvancedSearchValues`
+* `Activation.AutoClose`: optional group override for `[Activation].AutoClose`
+* `Activation.AutoPaste`: optional group override for `[Activation].AutoPaste`
+
+The default group always exists with `defaultGroupKey` / `defaultGroupName`. It does not accept group-specific overrides; default-group items inherit directly from global settings unless the item overrides a field.
+
 `HideOnBlur` and `KeepVisibleWhileConfiguring` work together only for the settings-window flow:
 
 | HideOnBlur | KeepVisibleWhileConfiguring | Main window hides when opening settings |
@@ -310,6 +352,7 @@ Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding
 
 #### `[[Item]]`
 
+* `Group`: optional group key; empty, missing, or unknown values place the item in the default group
 * `Key`: used for display and filtering
 * `Value`: used for clipboard/paste output and, when effective `SearchValues=true`, filtering
 * `Hidden`: used only to mask the visible display text
@@ -321,10 +364,10 @@ Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding
 * `Activation.AutoClose`: optional per-item override for `[Activation].AutoClose`
 * `Activation.AutoPaste`: optional per-item override for `[Activation].AutoPaste`
 
-Missing or empty item-level `Search.SearchValues`, `Search.CaseSensitiveSearchKeys`, `Search.CaseSensitiveSearchValues`, `Search.AdvancedSearchKeys`, `Search.AdvancedSearchValues`, `Activation.AutoClose`, and `Activation.AutoPaste` fields fall back independently to `[Search]` or `[Activation]` as appropriate.
-Filtering always checks `ClipItem.key`. It also checks `ClipItem.value` when the effective `SearchValues` setting is true. When effective `SearchValues=false`, item values are ignored during filtering and effective `AdvancedSearchValues` has no effect. Key matching uses the effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Case sensitivity and advanced search are evaluated independently for keys and values. Each effective search setting is computed independently from the item first, falling back to `[Search]` when the item does not override it.
+Missing or empty group-level activation/search fields fall back independently to `[Activation]` or `[Search]`. Missing or empty item-level fields fall back independently to the item group’s effective values. Default-group items fall back directly to global settings. `Hidden` falls back from item to group, with false as the default-group value.
+Filtering only considers items in the selected group. It always checks `ClipItem.key`. It also checks `ClipItem.value` when the already-resolved effective `SearchValues` setting is true. When effective `SearchValues=false`, item values are ignored during filtering and effective `AdvancedSearchValues` has no effect. Key matching uses the item’s already-resolved effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the item’s already-resolved effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Case sensitivity and advanced search are evaluated independently for keys and values.
 Normal search checks whether the key or value contains the whole filter string as one substring. Advanced search splits the filter by spaces, then matches only when the key or value contains all filter parts as substrings. Advanced search still respects the effective key or value case-sensitivity setting. For filter `foo bar`, normal search matches only text containing the exact substring `foo bar`; advanced search matches text containing both `foo` and `bar` in any position or order.
-On activation, the selected value is always copied first. The effective `AutoClose` value then decides whether the main window hides. The effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
+On activation, the selected value is always copied first. The selected item’s already-resolved effective `AutoClose` value then decides whether the main window hides. The selected item’s already-resolved effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
 
 ### Important note about settings editing
 
@@ -347,7 +390,7 @@ What is stable enough to rely on:
 * startup through `main.cpp`
 * `MainWindow` as the main snippet-window orchestrator
 * `SettingsWindow` as the separate config-editor window
-* `ClipListView` as the main-list control owner
+* `ClipListView` as the main-list and group-selector control owner
 * `AppConfig` as the config parser / loader
 * tray and clipboard plumbing
 
@@ -375,7 +418,7 @@ What is still rough:
 * `MainWindow` should orchestrate the snippet-list window, tray actions, hotkey events, and item activation
 * `MainWindow` should request app-owned settings opening and app-level config reload through callbacks
 * `SettingsWindow` should own the separate settings HWND, settings controls, and dirty-check/save behavior
-* `ClipListView` should own main-list controls and filter behavior
+* `ClipListView` should own main-list controls, group-selector controls, selected-group state, and filter behavior
 * `AppConfig` should remain the config parser / loader boundary
 * clipboard and paste mechanics should stay in `ClipboardUtils`
 * tray and hotkey logic should stay in their existing modules unless the task directly changes them
@@ -408,7 +451,7 @@ These reflect the current repository, not an idealized structure.
 
 * owns the main snippet-window HWND
 * handles `WndProc` dispatch for that window
-* creates main-list controls through `ClipListView`
+* creates main-list and group-selector controls through `ClipListView`
 * coordinates tray actions, hotkey events, and item activation
 * reads the app-owned `AppConfig` and applies current values to main-window state
 * requests app-level config reload through a callback
@@ -427,9 +470,10 @@ These reflect the current repository, not an idealized structure.
 
 ### `src/ClipListView.*`
 
-* creates main-list child controls
+* creates main-list and group-selector child controls
 * owns filter debounce timer behavior
-* populates and filters the list box
+* owns selected-group state
+* populates and filters the group and snippet list boxes
 * exposes selection and settings-button events back to `MainWindow`
 
 ### `src/AppConfig.*`
@@ -437,6 +481,7 @@ These reflect the current repository, not an idealized structure.
 * locates runtime files relative to the executable
 * parses `settings.txt`
 * decodes quoted values and escaped characters
+* resolves global, group, and item fallback settings into concrete `Group` and `ClipItem` values
 * returns the in-memory config model
 
 There is still no separate save/validate API here; raw-text settings save writes directly to disk in `SettingsWindow.cpp`.
@@ -499,7 +544,7 @@ Important current state includes:
 
 * captured foreground/focused window snapshot in `lastFocus_`
 * full config model in `ClipDeckApp::config_`
-* visible filtered item index mapping in `ClipListView`
+* selected group key and visible filtered item index mapping in `ClipListView`
 * settings editor state in `SettingsWindow`:
 
   * `originalText`
