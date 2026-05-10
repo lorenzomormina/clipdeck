@@ -26,14 +26,19 @@ AutoPaste=false ; can be true only if AutoClose is true
 
 [Search]
 SearchValues=false
-CaseSensitiveKeys=false
-CaseSensitiveValues=true
+CaseSensitiveSearchKeys=false
+CaseSensitiveSearchValues=true
+AdvancedSearchKeys=false
+AdvancedSearchValues=false
 
 [[Item]]
 Key="mykey"
 Value="myvalue"
+Hidden=
 Activation.AutoClose=
 Activation.AutoPaste=
 Search.SearchValues=
-Search.CaseSensitiveKeys=
-Search.CaseSensitiveValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=

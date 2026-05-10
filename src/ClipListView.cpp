@@ -4,7 +4,9 @@
 
 #include <algorithm>
 #include <commctrl.h>
+#include <sstream>
 #include <string>
+#include <vector>
 
 namespace ClipDeck {
 
@@ -439,11 +441,17 @@ void ClipListView::ApplyCurrentFilter() {
             const bool effectiveSearchValues =
                 item.searchValues.value_or(searchSettings_.searchValues);
             const bool effectiveCaseSensitiveKeys =
-                item.caseSensitiveKeys.value_or(
-                    searchSettings_.caseSensitiveKeys);
+                item.caseSensitiveSearchKeys.value_or(
+                    searchSettings_.caseSensitiveSearchKeys);
             const bool effectiveCaseSensitiveValues =
-                item.caseSensitiveValues.value_or(
-                    searchSettings_.caseSensitiveValues);
+                item.caseSensitiveSearchValues.value_or(
+                    searchSettings_.caseSensitiveSearchValues);
+            const bool effectiveAdvancedSearchKeys =
+                item.advancedSearchKeys.value_or(
+                    searchSettings_.advancedSearchKeys);
+            const bool effectiveAdvancedSearchValues =
+                item.advancedSearchValues.value_or(
+                    searchSettings_.advancedSearchValues);
 
             std::wstring lowerFilter;
             if (!effectiveCaseSensitiveKeys || !effectiveCaseSensitiveValues) {
@@ -459,11 +467,43 @@ void ClipListView::ApplyCurrentFilter() {
             const std::wstring valueToUse =
                 effectiveCaseSensitiveValues ? item.value : toLower(item.value);
 
-            const bool matchesKey =
-                keyToUse.find(keyFilterToUse) != std::wstring::npos;
+            auto splitBySpaces = [](const std::wstring &text) {
+                std::vector<std::wstring> parts;
+                std::wistringstream stream(text);
+
+                std::wstring part;
+                while (stream >> part) {
+                    parts.push_back(part);
+                }
+
+                return parts;
+            };
+
+            auto containsFilter = [&splitBySpaces](const std::wstring &text,
+                                                   const std::wstring &filter,
+                                                   bool advancedSearch) {
+                if (!advancedSearch) {
+                    return text.find(filter) != std::wstring::npos;
+                }
+
+                const std::vector<std::wstring> parts = splitBySpaces(filter);
+
+                for (const std::wstring &part : parts) {
+                    if (text.find(part) == std::wstring::npos) {
+                        return false;
+                    }
+                }
+
+                return true;
+            };
+
+            const bool matchesKey = containsFilter(keyToUse, keyFilterToUse,
+                                                   effectiveAdvancedSearchKeys);
+
             const bool matchesValue =
                 effectiveSearchValues &&
-                valueToUse.find(valueFilterToUse) != std::wstring::npos;
+                containsFilter(valueToUse, valueFilterToUse,
+                               effectiveAdvancedSearchValues);
 
             if (!matchesKey && !matchesValue) {
                 continue;

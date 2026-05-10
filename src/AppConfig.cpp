@@ -337,13 +337,21 @@ void ApplySearchSetting(AppConfig *config, const std::wstring &key,
         if (ParseBoolValue(valueToken, &parsed)) {
             config->searchSettings.searchValues = parsed;
         }
-    } else if (key == L"CaseSensitiveKeys") {
+    } else if (key == L"CaseSensitiveSearchKeys") {
         if (ParseBoolValue(valueToken, &parsed)) {
-            config->searchSettings.caseSensitiveKeys = parsed;
+            config->searchSettings.caseSensitiveSearchKeys = parsed;
         }
-    } else if (key == L"CaseSensitiveValues") {
+    } else if (key == L"CaseSensitiveSearchValues") {
         if (ParseBoolValue(valueToken, &parsed)) {
-            config->searchSettings.caseSensitiveValues = parsed;
+            config->searchSettings.caseSensitiveSearchValues = parsed;
+        }
+    } else if (key == L"AdvancedSearchKeys") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->searchSettings.advancedSearchKeys = parsed;
+        }
+    } else if (key == L"AdvancedSearchValues") {
+        if (ParseBoolValue(valueToken, &parsed)) {
+            config->searchSettings.advancedSearchValues = parsed;
         }
     }
 }
@@ -377,17 +385,29 @@ void ApplyItemSetting(ClipItem *item, const std::wstring &key,
         } else if (ParseBoolValue(valueToken, &parsed)) {
             item->searchValues = parsed;
         }
-    } else if (key == L"Search.CaseSensitiveKeys") {
+    } else if (key == L"Search.CaseSensitiveSearchKeys") {
         if (valueToken.empty()) {
-            item->caseSensitiveKeys.reset();
+            item->caseSensitiveSearchKeys.reset();
         } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->caseSensitiveKeys = parsed;
+            item->caseSensitiveSearchKeys = parsed;
         }
-    } else if (key == L"Search.CaseSensitiveValues") {
+    } else if (key == L"Search.CaseSensitiveSearchValues") {
         if (valueToken.empty()) {
-            item->caseSensitiveValues.reset();
+            item->caseSensitiveSearchValues.reset();
         } else if (ParseBoolValue(valueToken, &parsed)) {
-            item->caseSensitiveValues = parsed;
+            item->caseSensitiveSearchValues = parsed;
+        }
+    } else if (key == L"Search.AdvancedSearchKeys") {
+        if (valueToken.empty()) {
+            item->advancedSearchKeys.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
+            item->advancedSearchKeys = parsed;
+        }
+    } else if (key == L"Search.AdvancedSearchValues") {
+        if (valueToken.empty()) {
+            item->advancedSearchValues.reset();
+        } else if (ParseBoolValue(valueToken, &parsed)) {
+            item->advancedSearchValues = parsed;
         }
     } else if (key == L"Activation.AutoClose") {
         if (valueToken.empty()) {
