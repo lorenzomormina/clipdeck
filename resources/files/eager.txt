@@ -1,0 +1,2 @@
+EAGER_TOKEN content is cached during config load and can be searched immediately.
+This file contains the words amber and cobalt for value/content search checks.

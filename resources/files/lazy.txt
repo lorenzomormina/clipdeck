@@ -1,0 +1,2 @@
+LAZY_TOKEN content becomes searchable after the first activation caches it.
+This file also contains the words silver and meadow.

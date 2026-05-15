@@ -216,6 +216,7 @@ The application currently has two concrete top-level windows:
 
 The runtime settings file is `<exe directory>\settings.txt`.
 The default copy is stored in `resources/settings.txt` and copied beside the executable by CMake post-build steps.
+Companion sample file fixtures live under `resources/files/` and are copied to `<exe directory>\files\` so relative `Path=` values in the default settings continue to work after a normal build.
 
 `AppConfig.*` is the source of truth for what is currently parsed.
 
@@ -531,6 +532,10 @@ There is still no separate save/validate API here; raw-text settings save writes
 ### `resources/settings.txt`
 
 * default sample settings file copied to the output directory after build
+
+### `resources/files/`
+
+* companion sample file fixtures copied beside the executable for file-backed default items
 
 ### `docs/AI_CONTEXT.md`
 

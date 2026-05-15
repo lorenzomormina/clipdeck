@@ -1,20 +1,22 @@
-; ClipDeck configuration
-; Use \n in order to insert newlines in Values
+; ClipDeck manual-test configuration
+; This file intentionally exercises global defaults, group overrides, item
+; overrides, empty override fallback, quoted escapes, inline comments, ignored
+; sections, and relative file paths.
 
 [App]
-StartHidden=false ; should be true by default on release
+StartHidden=false ; keep the window visible while testing
 
 [Hotkey]
 Open="Ctrl+Shift+Backtick"
 
 [MainWindow]
-Width=400
-Height=300
+Width=480
+Height=360
 Margin=4
 TextBoxMargin=6
 HideOnBlur=true
 KeepVisibleWhileConfiguring=true
-GroupListBoxWidth=100
+GroupListBoxWidth=150
 
 [SettingsWindow]
 Width=800
@@ -23,19 +25,19 @@ Margin=4
 
 [Activation]
 AutoClose=true
-AutoPaste=false ; can be true only if AutoClose is true
+AutoPaste=false ; global default: close after normal activation, do not paste
 
 [Search]
-SearchValues=false
+SearchValues=false ; global default: only keys are searchable
 CaseSensitiveSearchKeys=false
-CaseSensitiveSearchValues=true
+CaseSensitiveSearchValues=false
 AdvancedSearchKeys=false
 AdvancedSearchValues=false
 
-[[Item]]
-Group=
-Key="mykey"
-Value="myvalue"
+; Empty overrides here should inherit the global defaults above.
+[[Group]]
+Key=fallbacks
+Name="Fallback defaults"
 Hidden=
 Activation.AutoClose=
 Activation.AutoPaste=
@@ -45,13 +47,428 @@ Search.CaseSensitiveSearchValues=
 Search.AdvancedSearchKeys=
 Search.AdvancedSearchValues=
 
-; File-backed items copy file content instead of Value.
-; Type=Text is the default when Type is omitted.
-; LoadMode can be OnActivation, Lazy, or Eager.
-; [[Item]]
-; Type=File
-; Group=
-; Key="settings-file"
-; Path="./settings.txt"
-; DisplayText="My settings file"
-; LoadMode=OnActivation
+; Group-level search override: values, display text, and loaded file content can
+; participate in filtering.
+[[Group]]
+Key=value-search
+Name="Value/content search"
+Hidden=false
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=true
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+; Group-level activation and strict-search overrides.
+[[Group]]
+Key=strict
+Name="Strict search + activation"
+Hidden=false
+Activation.AutoClose=false
+Activation.AutoPaste=true
+Search.SearchValues=true
+Search.CaseSensitiveSearchKeys=true
+Search.CaseSensitiveSearchValues=true
+Search.AdvancedSearchKeys=true
+Search.AdvancedSearchValues=true
+
+; Group-level hidden override. Hidden values/content should not participate in
+; value search even though Search.SearchValues=true.
+[[Group]]
+Key=masked
+Name="Masked items"
+Hidden=true
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=true
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+; This group is intentionally ignored because the built-in default group already
+; owns the reserved key "default".
+[[Group]]
+Key=default
+Name="Ignored duplicate default group"
+Hidden=true
+Activation.AutoClose=false
+Activation.AutoPaste=true
+Search.SearchValues=true
+Search.CaseSensitiveSearchKeys=true
+Search.CaseSensitiveSearchValues=true
+Search.AdvancedSearchKeys=true
+Search.AdvancedSearchValues=true
+
+; ---------------------------
+; Built-in default group items
+; ---------------------------
+
+[[Item]]
+Type=Text
+Group=
+Key="global-key"
+Value="Global default value is not searchable because SearchValues=false."
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+; Group is intentionally omitted: missing group means built-in default group.
+Key="missing-group-key"
+Value="Missing Group field falls back to the built-in default group."
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=unknown-group
+Key="unknown-group-key"
+Value="Unknown group keys also fall back to the built-in default group."
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=UnexpectedType ; unknown item type falls back to Text
+Group=
+Key="escaped-text"
+Value="Line 1\nLine 2 with \"quotes\" and a slash pair: C:\\Temp\\ClipDeck" ; comment outside quotes
+Path=
+DisplayText="Escaped preview ; semicolon stays inside quotes"
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+; ----------------------
+; Empty override fallback
+; ----------------------
+
+[[Item]]
+Type=Text
+Group=fallbacks
+Key="fallback-group-key"
+Value="This group and item leave every override empty, so globals apply."
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=fallbacks
+Key="item-overrides-key"
+Value="Per-item overrides enable searchable text and keep the window open."
+Path=
+DisplayText="Item override preview"
+LoadMode=OnActivation
+Hidden=false
+Activation.AutoClose=false
+Activation.AutoPaste=true
+Search.SearchValues=true
+Search.CaseSensitiveSearchKeys=true
+Search.CaseSensitiveSearchValues=true
+Search.AdvancedSearchKeys=true
+Search.AdvancedSearchValues=true
+
+; --------------------
+; Value/content search
+; --------------------
+
+[[Item]]
+Type=Text
+Group=value-search
+Key="value-text"
+Value="sunrise copper harbor"
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=value-search
+Key="display-text"
+Value="private backing value"
+Path=
+DisplayText="public preview citrus label" ; display text is searchable when values are enabled
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=value-search
+Key="value-disabled"
+Value="platinum hidden by per-item SearchValues=false"
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=false
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=value-search
+Key="value-hidden"
+Value="secret uranium phrase"
+Path=
+DisplayText="this preview is masked"
+LoadMode=OnActivation
+Hidden=true
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=value-search
+Key="advanced-value-item"
+Value="orange words appear far apart from cobalt"
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=true
+
+[[Item]]
+Type=File
+Group=value-search
+Key="file-on-activation"
+Value=
+Path=files/on-activation.txt ; resolved relative to this settings.txt directory
+DisplayText="on activation preview"
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=File
+Group=value-search
+Key="file-lazy"
+Value=
+Path=files/lazy.txt
+DisplayText=
+LoadMode=Lazy
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=File
+Group=value-search
+Key="file-eager"
+Value=
+Path=files/eager.txt
+DisplayText=
+LoadMode=Eager
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+; --------------------------------
+; Strict search + activation group
+; --------------------------------
+
+[[Item]]
+Type=Text
+Group=strict
+Key="Alpha Beta Key"
+Value="Red Blue Value"
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=strict
+Key="strict item relaxed"
+Value="Mixed Case Search"
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=false
+Search.CaseSensitiveSearchValues=false
+Search.AdvancedSearchKeys=false
+Search.AdvancedSearchValues=false
+
+[[Item]]
+Type=Text
+Group=strict
+Key="strict close paste"
+Value="This item overrides AutoClose to true and inherits AutoPaste=true."
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=true
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=strict
+Key="strict close no paste"
+Value="This item closes but disables paste at item level."
+Path=
+DisplayText=
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=true
+Activation.AutoPaste=false
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+; ------------
+; Masked group
+; ------------
+
+[[Item]]
+Type=Text
+Group=masked
+Key="masked-inherited"
+Value="hidden titanium phrase"
+Path=
+DisplayText="hidden display text"
+LoadMode=OnActivation
+Hidden=
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+[[Item]]
+Type=Text
+Group=masked
+Key="masked-visible-override"
+Value="visible nickel phrase"
+Path=
+DisplayText="visible override preview"
+LoadMode=OnActivation
+Hidden=false
+Activation.AutoClose=
+Activation.AutoPaste=
+Search.SearchValues=
+Search.CaseSensitiveSearchKeys=
+Search.CaseSensitiveSearchValues=
+Search.AdvancedSearchKeys=
+Search.AdvancedSearchValues=
+
+; -----------------------
+; Intentionally ignored
+; -----------------------
+
+[IgnoredSection]
+This line has no equals sign and should be ignored.
+IgnoredKey="Ignored value"
+
+[[UnknownBlock]]
+AnotherIgnoredKey=true
