@@ -1,6 +1,7 @@
 #pragma once
 
 #include <filesystem>
+#include <optional>
 #include <string>
 #include <vector>
 
@@ -9,9 +10,24 @@ namespace ClipDeck {
 const std::wstring defaultGroupKey = L"default";
 const std::wstring defaultGroupName = L"(no group)";
 
+enum class ClipItemType {
+    Text,
+    File
+};
+
+enum class FileLoadMode {
+    OnActivation,
+    Lazy,
+    Eager
+};
+
 struct ClipItem {
+    ClipItemType type = ClipItemType::Text;
     std::wstring key;
     std::wstring value;
+    std::wstring path;
+    std::wstring displayText;
+    FileLoadMode loadMode = FileLoadMode::OnActivation;
     std::wstring group = defaultGroupKey;
     bool hidden = false;
     bool searchValues = false;
@@ -22,13 +38,7 @@ struct ClipItem {
     bool advancedSearchKeys = false;
     bool advancedSearchValues = false;
     size_t loadOrder = 0;
-
-    std::wstring GetDisplayText() const {
-        if (hidden) {
-            return L"[" + key + L"] " + L"*****";
-        }
-        return L"[" + key + L"] " + value;
-    }
+    mutable std::optional<std::wstring> cachedFileContent;
 };
 
 struct Group {
@@ -95,5 +105,9 @@ struct AppConfig {
 };
 
 AppConfig LoadAppConfig();
+std::wstring GetItemDisplayText(const ClipItem &item);
+const std::wstring *GetItemSearchValueText(const ClipItem &item);
+bool TryGetActivationText(const ClipItem &item, std::wstring *text,
+                          std::wstring *error);
 
 } // namespace ClipDeck

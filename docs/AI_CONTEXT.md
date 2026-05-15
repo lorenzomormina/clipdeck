@@ -25,7 +25,7 @@ Treat `build/` as generated output, not as architecture guidance.
 
 ## 1) App purpose
 
-ClipDeck is a small WinAPI desktop utility for quickly inserting configured text snippets.
+ClipDeck is a small WinAPI desktop utility for quickly inserting configured text snippets and file-backed snippet items.
 
 Today, in code, it:
 
@@ -33,12 +33,12 @@ Today, in code, it:
 * runs with a tray icon and a global hotkey
 * uses one top-level main window for snippet selection
 * uses one separate top-level settings window for raw settings editing
-* copies the selected value to the clipboard
+* copies the selected item content to the clipboard; text items copy `Value`, and file items copy file content from `Path`
 * optionally hides the main window and auto-pastes into the captured foreground/focused window snapshot, using effective per-item activation settings resolved during config load
-* supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected value without closing or auto-pasting
+* supports copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`, which copies the selected item content without closing or auto-pasting
 * auto-paste only runs in the effective `AutoClose=true` activation flow
 * supports grouped config items through a main-window group selector that filters the snippet list to the selected group
-* supports key-based filtering and optional value-based filtering through effective per-item `Search.SearchValues`, with separate key/value case-sensitivity and advanced-search controls
+* supports key-based filtering and optional value/content-based filtering through effective per-item `Search.SearchValues`, with separate key/value case-sensitivity and advanced-search controls
 
 The app is meant to stay lightweight, explicit, and easy to change locally.
 
@@ -70,10 +70,10 @@ This section reflects the current code in `main.cpp`, `ClipDeckApp.*`, `MainWind
    * a filter `EDIT`
    * a settings icon button
 10. The group list is hidden initially. The selected group defaults to the default group when present, otherwise the first available group. Toggling the group button shows or hides the group list; selecting a group updates the selected-group text box and filters the snippet list to that group.
-11. Typing in the filter box starts a 100 ms debounce timer. Filtering only considers items in the selected group. It always checks `ClipItem.key`. It also checks `ClipItem.value` when the already-resolved effective `SearchValues` setting is true. Key matching uses the item’s already-resolved effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the item’s already-resolved effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings.
+11. Typing in the filter box starts a 100 ms debounce timer. Filtering only considers items in the selected group. It always checks `ClipItem.key`. It also checks public value/content text when the already-resolved effective `SearchValues` setting is true and the item is not hidden. Text items search `Value`. File items search cached content only when it is already loaded (`Eager`, or `Lazy` after a prior activation); `OnActivation` files are not read for search. Key matching uses the item’s already-resolved effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the item’s already-resolved effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings.
 12. Double-clicking a list item or pressing `Enter` in the list activates the selected item.
 13. Holding `Ctrl` while double-clicking or pressing `Enter` activates the selected item in copy-only mode.
-14. Activation copies the selected value to the clipboard.
+14. Activation resolves the selected item content and copies it to the clipboard. If file content cannot be read, activation shows an error and stops before changing the clipboard, hiding the main window, or auto-pasting.
 15. In normal activation, the app uses the selected item’s already-resolved effective `AutoClose` and `AutoPaste` values.
 16. If effective `AutoClose=true`, the main window hides after normal activation.
 17. If effective `AutoClose=true` and effective `AutoPaste=true`, the app attempts to restore the previously focused window and sends `Ctrl+V` via `SendInput`.
@@ -135,8 +135,9 @@ The application currently has two concrete top-level windows:
 * after filtering, the selected underlying item is preserved if it remains visible; otherwise the first visible result is selected when any results are present
 * activation is by double click or `Enter` in the list box
 * holding `Ctrl` during double click or `Enter` performs copy-only activation: copy to clipboard without closing or auto-pasting
-* selected item value is copied to clipboard
-* hidden items are still present in the list, but their displayed value is masked as `*****`
+* selected item content is copied to clipboard
+* hidden items are still present in the list, but their displayed preview is masked as `*****`
+* visible items can use item-only `DisplayText` as the list preview without changing activation content
 * the window uses tool-window style and is hidden from the taskbar
 * losing focus hides the window only when the effective `HideOnBlur` setting is true
 * when opening settings, `KeepVisibleWhileConfiguring=true` prevents the main window from hiding even if `HideOnBlur=true`
@@ -182,14 +183,17 @@ The application currently has two concrete top-level windows:
 * one separate WinAPI top-level settings window for raw settings editing
 * tray icon with `Open`, `Reload`, and `Exit`
 * config-driven global hotkey registration
-* searchable key/value list UI
+* searchable key/value/content list UI
 * clipboard copy on item activation
+* text items that copy configured `Value`
+* file-backed items that copy content from configured `Path`, with `OnActivation`, `Lazy`, and `Eager` load modes
 * copy-only activation with `Ctrl+double-click` or `Ctrl+Enter`
 * optional auto-close after activation, with per-group and per-item `Activation.AutoClose` overrides resolved during config load
 * optional auto-paste attempt back to the previously focused window, with per-group and per-item `Activation.AutoPaste` overrides resolved during config load
 * raw settings text editor with save/discard confirmation
 * config reload after settings save or tray reload
 * grouped `[[Group]]` / `[[Item]]` config model, with main-window group selection
+* item-only `DisplayText` UI previews
 * value search is implemented through effective `SearchValues`, with group/item overrides resolved during config load
 * key/value search case sensitivity is configurable through effective `CaseSensitiveSearchKeys` and `CaseSensitiveSearchValues`
 * key/value advanced search is configurable independently through effective `AdvancedSearchKeys` and `AdvancedSearchValues`
@@ -265,9 +269,13 @@ Search.AdvancedSearchKeys=
 Search.AdvancedSearchValues=
 
 [[Item]]
+Type=Text
 Group=
 Key="mykey"
 Value="myvalue"
+Path=
+DisplayText=
+LoadMode=OnActivation
 Hidden=
 Activation.AutoClose=
 Activation.AutoPaste=
@@ -285,8 +293,12 @@ Search.AdvancedSearchValues=
 * quoted strings support `\n`, `\"`, and `\\`
 * unknown sections and unparseable lines are ignored
 * invalid values usually fall back silently to defaults rather than surfacing an error
+* missing or unknown item `Type` values resolve to `Text`
+* missing or unknown file `LoadMode` values resolve to `OnActivation`
 * empty group/item override values are parsed as "no override" for that field
 * `LoadAppConfig()` resolves group and item fallback values into concrete `bool` fields on `Group` and `ClipItem`
+* file item paths are resolved relative to the loaded `settings.txt` directory when they are not absolute
+* `LoadMode=Eager` file content is read and cached during config load when the file can be read
 
 ### Fields currently consumed by app behavior
 
@@ -318,7 +330,7 @@ Search.AdvancedSearchValues=
 
 #### `[Search]`
 
-* `SearchValues`: used as the global default for value-based filtering
+* `SearchValues`: used as the global default for value/content-based filtering
 * `CaseSensitiveSearchKeys`: used as the global default for key filter matching case sensitivity
 * `CaseSensitiveSearchValues`: used as the global default for value filter matching case sensitivity
 * `AdvancedSearchKeys`: used as the global default for key advanced-search matching
@@ -328,7 +340,7 @@ Search.AdvancedSearchValues=
 
 * `Key`: group key referenced by `[[Item]].Group`; empty, missing, duplicate, or `default` group keys are ignored
 * `Name`: group display name used by the main-window group selector
-* `Hidden`: optional group default for item value masking; missing or empty means false
+* `Hidden`: optional group default for item preview masking; missing or empty means false
 * `Search.SearchValues`: optional group override for `[Search].SearchValues`
 * `Search.CaseSensitiveSearchKeys`: optional group override for `[Search].CaseSensitiveSearchKeys`
 * `Search.CaseSensitiveSearchValues`: optional group override for `[Search].CaseSensitiveSearchValues`
@@ -353,9 +365,13 @@ Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding
 #### `[[Item]]`
 
 * `Group`: optional group key; empty, missing, or unknown values place the item in the default group
+* `Type`: `Text` or `File`; missing or unknown means `Text`
 * `Key`: used for display and filtering
-* `Value`: used for clipboard/paste output and, when effective `SearchValues=true`, filtering
-* `Hidden`: used only to mask the visible display text
+* `Value`: used by text items for clipboard/paste output and, when effective `SearchValues=true` and not hidden, filtering; ignored by file items
+* `Path`: used by file items as the path to the file content; ignored by text items
+* `DisplayText`: optional item-only UI preview for visible text and file items; it is not inherited and does not affect activation content
+* `LoadMode`: file-only content loading mode, `OnActivation`, `Lazy`, or `Eager`; ignored by text items
+* `Hidden`: inherited mask/conceal setting for the UI preview; hidden items remain visible and activatable, and `Hidden=true` overrides `DisplayText`
 * `Search.SearchValues`: optional per-item override for `[Search].SearchValues`
 * `Search.CaseSensitiveSearchKeys`: optional per-item override for `[Search].CaseSensitiveSearchKeys`
 * `Search.CaseSensitiveSearchValues`: optional per-item override for `[Search].CaseSensitiveSearchValues`
@@ -364,10 +380,10 @@ Outside the settings-window flow, `HideOnBlur` controls normal focus-loss hiding
 * `Activation.AutoClose`: optional per-item override for `[Activation].AutoClose`
 * `Activation.AutoPaste`: optional per-item override for `[Activation].AutoPaste`
 
-Missing or empty group-level activation/search fields fall back independently to `[Activation]` or `[Search]`. Missing or empty item-level fields fall back independently to the item group’s effective values. Default-group items fall back directly to global settings. `Hidden` falls back from item to group, with false as the default-group value.
-Filtering only considers items in the selected group. It always checks `ClipItem.key`. It also checks `ClipItem.value` when the already-resolved effective `SearchValues` setting is true. When effective `SearchValues=false`, item values are ignored during filtering and effective `AdvancedSearchValues` has no effect. Key matching uses the item’s already-resolved effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the item’s already-resolved effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Case sensitivity and advanced search are evaluated independently for keys and values.
-Normal search checks whether the key or value contains the whole filter string as one substring. Advanced search splits the filter by spaces, then matches only when the key or value contains all filter parts as substrings. Advanced search still respects the effective key or value case-sensitivity setting. For filter `foo bar`, normal search matches only text containing the exact substring `foo bar`; advanced search matches text containing both `foo` and `bar` in any position or order.
-On activation, the selected value is always copied first. The selected item’s already-resolved effective `AutoClose` value then decides whether the main window hides. The selected item’s already-resolved effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow.
+Missing or empty group-level activation/search fields fall back independently to `[Activation]` or `[Search]`. Missing or empty item-level fields fall back independently to the item group’s effective values. Default-group items fall back directly to global settings. `Hidden` falls back from item to group, with false as the default-group value. `DisplayText` is item-only and is never inherited.
+Filtering only considers items in the selected group. It always checks `ClipItem.key`. It also checks public value/content text when the already-resolved effective `SearchValues` setting is true and the effective `Hidden` setting is false. Text items search `Value`. File items search cached file content only; `OnActivation` does not load for search, `Lazy` searches only after content was cached by another operation, and `Eager` can search the content loaded during config load. Visible item `DisplayText` is also searchable as public UI text when `SearchValues=true`. Hidden real values and file content are not searched. When effective `SearchValues=false`, item values/content are ignored during filtering and effective `AdvancedSearchValues` has no effect. Key matching uses the item’s already-resolved effective `CaseSensitiveSearchKeys` and `AdvancedSearchKeys` settings. Value matching uses the item’s already-resolved effective `CaseSensitiveSearchValues` and `AdvancedSearchValues` settings. Case sensitivity and advanced search are evaluated independently for keys and values.
+Normal search checks whether the key, value/content, or public display text contains the whole filter string as one substring. Advanced search splits the filter by spaces, then matches only when the target text contains all filter parts as substrings. Advanced search still respects the effective key or value case-sensitivity setting. For filter `foo bar`, normal search matches only text containing the exact substring `foo bar`; advanced search matches text containing both `foo` and `bar` in any position or order.
+On activation, the selected item content is resolved first. Text items use `Value`. File items use file content from `Path`; `OnActivation` reads each activation, while `Lazy` and `Eager` reuse cached content after it is available. The content is copied before normal close/paste behavior. The selected item’s already-resolved effective `AutoClose` value then decides whether the main window hides. The selected item’s already-resolved effective `AutoPaste` value decides whether paste is attempted, but only inside the effective `AutoClose=true` flow. If file content cannot be read, activation shows an error and does not overwrite the clipboard, close the main window, or auto-paste.
 
 ### Important note about settings editing
 

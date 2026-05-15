@@ -33,13 +33,9 @@ AdvancedSearchKeys=false
 AdvancedSearchValues=false
 
 [[Item]]
-Type=File ; Text | File
 Group=
 Key="mykey"
-Path="./settings.txt"
-DisplayText="My settings file"
-LoadMode=OnActivation ; OnActivation | Lazy | Eager
-
+Value="myvalue"
 Hidden=
 Activation.AutoClose=
 Activation.AutoPaste=
@@ -48,3 +44,14 @@ Search.CaseSensitiveSearchKeys=
 Search.CaseSensitiveSearchValues=
 Search.AdvancedSearchKeys=
 Search.AdvancedSearchValues=
+
+; File-backed items copy file content instead of Value.
+; Type=Text is the default when Type is omitted.
+; LoadMode can be OnActivation, Lazy, or Eager.
+; [[Item]]
+; Type=File
+; Group=
+; Key="settings-file"
+; Path="./settings.txt"
+; DisplayText="My settings file"
+; LoadMode=OnActivation

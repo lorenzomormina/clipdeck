@@ -41,9 +41,13 @@ struct ParsedGroup {
 };
 
 struct ParsedItem {
+    ClipItemType type = ClipItemType::Text;
     std::wstring group;
     std::wstring key;
     std::wstring value;
+    std::wstring path;
+    std::wstring displayText;
+    FileLoadMode loadMode = FileLoadMode::OnActivation;
     std::optional<bool> hidden;
     std::optional<bool> searchValues;
     std::optional<bool> autoClose;
@@ -289,6 +293,52 @@ bool ParseConfigString(const std::wstring &valueToken, std::wstring *parsed) {
     return true;
 }
 
+ClipItemType ParseClipItemType(const std::wstring &valueToken) {
+    std::wstring parsed;
+    if (!ParseConfigString(valueToken, &parsed)) {
+        return ClipItemType::Text;
+    }
+
+    const std::wstring lowered = ToLowerCopy(parsed);
+    if (lowered == L"file") {
+        return ClipItemType::File;
+    }
+
+    return ClipItemType::Text;
+}
+
+FileLoadMode ParseFileLoadMode(const std::wstring &valueToken) {
+    std::wstring parsed;
+    if (!ParseConfigString(valueToken, &parsed)) {
+        return FileLoadMode::OnActivation;
+    }
+
+    const std::wstring lowered = ToLowerCopy(parsed);
+    if (lowered == L"lazy") {
+        return FileLoadMode::Lazy;
+    }
+
+    if (lowered == L"eager") {
+        return FileLoadMode::Eager;
+    }
+
+    return FileLoadMode::OnActivation;
+}
+
+std::wstring ResolveConfiguredPath(const std::wstring &pathText,
+                                   const AppConfig &config) {
+    if (pathText.empty()) {
+        return L"";
+    }
+
+    std::filesystem::path path(pathText);
+    if (path.is_relative()) {
+        path = config.settingsPath.parent_path() / path;
+    }
+
+    return path.lexically_normal().wstring();
+}
+
 void ApplyOptionalBoolSetting(std::optional<bool> *target,
                               const std::wstring &valueToken) {
     if (valueToken.empty()) {
@@ -454,6 +504,11 @@ void ApplyGroupSetting(ParsedGroup *group, const std::wstring &key,
 
 void ApplyItemSetting(ParsedItem *item, const std::wstring &key,
                       const std::wstring &valueToken) {
+    if (key == L"Type") {
+        item->type = ParseClipItemType(valueToken);
+        return;
+    }
+
     if (key == L"Group") {
         std::wstring parsed;
         if (ParseConfigString(valueToken, &parsed)) {
@@ -464,7 +519,7 @@ void ApplyItemSetting(ParsedItem *item, const std::wstring &key,
 
     if (key == L"Key") {
         std::wstring parsed;
-        if (ParseQuotedString(valueToken, &parsed)) {
+        if (ParseConfigString(valueToken, &parsed)) {
             item->key = parsed;
         }
         return;
@@ -472,9 +527,30 @@ void ApplyItemSetting(ParsedItem *item, const std::wstring &key,
 
     if (key == L"Value") {
         std::wstring parsed;
-        if (ParseQuotedString(valueToken, &parsed)) {
+        if (ParseConfigString(valueToken, &parsed)) {
             item->value = parsed;
         }
+        return;
+    }
+
+    if (key == L"Path") {
+        std::wstring parsed;
+        if (ParseConfigString(valueToken, &parsed)) {
+            item->path = parsed;
+        }
+        return;
+    }
+
+    if (key == L"DisplayText") {
+        std::wstring parsed;
+        if (ParseConfigString(valueToken, &parsed)) {
+            item->displayText = parsed;
+        }
+        return;
+    }
+
+    if (key == L"LoadMode") {
+        item->loadMode = ParseFileLoadMode(valueToken);
         return;
     }
 
@@ -547,11 +623,16 @@ Group ResolveGroup(const ParsedGroup &parsed, const AppConfig &config) {
     return group;
 }
 
-ClipItem ResolveItem(const ParsedItem &parsed, const Group &group) {
+ClipItem ResolveItem(const ParsedItem &parsed, const Group &group,
+                     const AppConfig &config) {
     ClipItem item;
+    item.type = parsed.type;
     item.group = group.key;
     item.key = parsed.key;
     item.value = parsed.value;
+    item.path = ResolveConfiguredPath(parsed.path, config);
+    item.displayText = parsed.displayText;
+    item.loadMode = parsed.loadMode;
     item.hidden = parsed.hidden.value_or(group.hidden);
     item.searchValues = parsed.searchValues.value_or(group.searchValues);
     item.autoClose = parsed.autoClose.value_or(group.autoClose);
@@ -565,6 +646,15 @@ ClipItem ResolveItem(const ParsedItem &parsed, const Group &group) {
     item.advancedSearchValues =
         parsed.advancedSearchValues.value_or(group.advancedSearchValues);
     item.loadOrder = parsed.loadOrder;
+
+    if (item.type == ClipItemType::File &&
+        item.loadMode == FileLoadMode::Eager && !item.path.empty()) {
+        std::wstring fileContent;
+        if (ReadTextFileWithEncodingFallback(item.path, &fileContent)) {
+            item.cachedFileContent = std::move(fileContent);
+        }
+    }
+
     return item;
 }
 
@@ -594,7 +684,7 @@ void ResolveGroupsAndItems(AppConfig *config,
         }
 
         Group &group = config->groups[*groupIndex];
-        group.items.push_back(ResolveItem(parsedItem, group));
+        group.items.push_back(ResolveItem(parsedItem, group, *config));
     }
 }
 
@@ -725,6 +815,80 @@ AppConfig LoadAppConfig() {
     }
 
     return config;
+}
+
+std::wstring GetItemDisplayText(const ClipItem &item) {
+    std::wstring preview;
+    if (item.hidden) {
+        preview = L"*****";
+    } else if (!item.displayText.empty()) {
+        preview = item.displayText;
+    } else if (item.type == ClipItemType::File) {
+        const std::filesystem::path path(item.path);
+        preview = path.has_filename() ? path.filename().wstring() : item.path;
+    } else {
+        preview = item.value;
+    }
+
+    return L"[" + item.key + L"] " + preview;
+}
+
+const std::wstring *GetItemSearchValueText(const ClipItem &item) {
+    if (item.hidden || !item.searchValues) {
+        return nullptr;
+    }
+
+    if (item.type == ClipItemType::Text) {
+        return &item.value;
+    }
+
+    if (item.cachedFileContent) {
+        return &(*item.cachedFileContent);
+    }
+
+    return nullptr;
+}
+
+bool TryGetActivationText(const ClipItem &item, std::wstring *text,
+                          std::wstring *error) {
+    if (!text || !error) {
+        return false;
+    }
+
+    text->clear();
+    error->clear();
+
+    if (item.type == ClipItemType::Text) {
+        *text = item.value;
+        return true;
+    }
+
+    if (item.path.empty()) {
+        *error = L"No file path is configured for item \"" + item.key + L"\".";
+        return false;
+    }
+
+    if ((item.loadMode == FileLoadMode::Lazy ||
+         item.loadMode == FileLoadMode::Eager) &&
+        item.cachedFileContent) {
+        *text = *item.cachedFileContent;
+        return true;
+    }
+
+    std::wstring fileContent;
+    if (!ReadTextFileWithEncodingFallback(item.path, &fileContent)) {
+        *error = L"Could not read file for item \"" + item.key + L"\":\n\n" +
+                 item.path;
+        return false;
+    }
+
+    if (item.loadMode == FileLoadMode::Lazy ||
+        item.loadMode == FileLoadMode::Eager) {
+        item.cachedFileContent = fileContent;
+    }
+
+    *text = std::move(fileContent);
+    return true;
 }
 
 } // namespace ClipDeck

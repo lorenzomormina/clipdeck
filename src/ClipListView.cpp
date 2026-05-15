@@ -596,9 +596,11 @@ void ClipListView::ApplyCurrentFilter(bool preserveSelection) {
                 item->caseSensitiveSearchValues ? filter : lowerFilter;
             const std::wstring keyToUse =
                 item->caseSensitiveSearchKeys ? item->key : toLower(item->key);
-            const std::wstring valueToUse =
-                item->caseSensitiveSearchValues ? item->value
-                                                : toLower(item->value);
+            const std::wstring *valueText = GetItemSearchValueText(*item);
+            const std::optional<std::wstring> displayText =
+                !item->hidden && !item->displayText.empty()
+                    ? std::optional<std::wstring>(item->displayText)
+                    : std::nullopt;
 
             auto splitBySpaces = [](const std::wstring &text) {
                 std::vector<std::wstring> parts;
@@ -634,10 +636,17 @@ void ClipListView::ApplyCurrentFilter(bool preserveSelection) {
                 containsFilter(keyToUse, keyFilterToUse,
                                item->advancedSearchKeys);
 
+            auto matchesValueText = [&](const std::wstring &text) {
+                const std::wstring valueToUse =
+                    item->caseSensitiveSearchValues ? text : toLower(text);
+                return containsFilter(valueToUse, valueFilterToUse,
+                                      item->advancedSearchValues);
+            };
+
             const bool matchesValue =
-                item->searchValues &&
-                containsFilter(valueToUse, valueFilterToUse,
-                               item->advancedSearchValues);
+                (valueText && matchesValueText(*valueText)) ||
+                (item->searchValues && displayText &&
+                 matchesValueText(*displayText));
 
             if (!matchesKey && !matchesValue) {
                 continue;
@@ -645,9 +654,9 @@ void ClipListView::ApplyCurrentFilter(bool preserveSelection) {
         }
 
         visibleItemRefs_.push_back(itemRef);
-        const std::wstring displayText = item->GetDisplayText();
+        const std::wstring itemDisplayText = GetItemDisplayText(*item);
         SendMessageW(listBox_, LB_ADDSTRING, 0,
-                     reinterpret_cast<LPARAM>(displayText.c_str()));
+                     reinterpret_cast<LPARAM>(itemDisplayText.c_str()));
     }
 
     if (previousSelectedItemRef) {

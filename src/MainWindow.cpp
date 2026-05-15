@@ -279,8 +279,16 @@ void MainWindow::ActivateSelectedItem(bool copyOnly) {
         return;
     }
 
-    const std::wstring &selectedValue = selectedItem->value;
-    if (!CopyTextToClipboard(selectedValue)) {
+    std::wstring activationText;
+    std::wstring activationError;
+    if (!TryGetActivationText(*selectedItem, &activationText,
+                              &activationError)) {
+        MessageBoxW(hwnd_, activationError.c_str(), L"ClipDeck",
+                    MB_ICONERROR);
+        return;
+    }
+
+    if (!CopyTextToClipboard(activationText)) {
         return;
     }
 
