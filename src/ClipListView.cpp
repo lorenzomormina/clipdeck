@@ -130,12 +130,12 @@ bool ClipListView::Create(HWND parent, HINSTANCE instance,
     }
 
     const int iconSize = std::max(16, GetSystemMetrics(SM_CXSMICON));
-    groupListOpenIcon_ = static_cast<HICON>(LoadImageW(
-        instance, MAKEINTRESOURCEW(IDI_GROUP_LIST_OPEN), IMAGE_ICON, iconSize,
-        iconSize, LR_DEFAULTCOLOR));
-    groupListCloseIcon_ = static_cast<HICON>(LoadImageW(
-        instance, MAKEINTRESOURCEW(IDI_GROUP_LIST_CLOSE), IMAGE_ICON, iconSize,
-        iconSize, LR_DEFAULTCOLOR));
+    groupListOpenIcon_ = static_cast<HICON>(
+        LoadImageW(instance, MAKEINTRESOURCEW(IDI_GROUP_LIST_OPEN), IMAGE_ICON,
+                   iconSize, iconSize, LR_DEFAULTCOLOR));
+    groupListCloseIcon_ = static_cast<HICON>(
+        LoadImageW(instance, MAKEINTRESOURCEW(IDI_GROUP_LIST_CLOSE), IMAGE_ICON,
+                   iconSize, iconSize, LR_DEFAULTCOLOR));
     settingsIcon_ = static_cast<HICON>(
         LoadImageW(instance, MAKEINTRESOURCEW(IDI_SETTINGS), IMAGE_ICON,
                    iconSize, iconSize, LR_DEFAULTCOLOR));
@@ -189,8 +189,7 @@ void ClipListView::Layout(int clientWidth, int clientHeight) {
     const int selectedGroupTextBoxWidth =
         std::max(0, clientWidth - selectedGroupTextBoxX - margin);
 
-    const int bottomRowY =
-        std::max(0, clientHeight - margin - controlHeight);
+    const int bottomRowY = std::max(0, clientHeight - margin - controlHeight);
     const int settingsButtonWidth = controlHeight;
     const int filterTextBoxWidth =
         std::max(0, availableWidth - margin - settingsButtonWidth);
@@ -198,14 +197,12 @@ void ClipListView::Layout(int clientWidth, int clientHeight) {
     const int settingsButtonX = filterTextBoxX + filterTextBoxWidth + margin;
 
     const int contentY = topRowY + controlHeight + margin;
-    const int contentHeight =
-        std::max(0, bottomRowY - margin - contentY);
+    const int contentHeight = std::max(0, bottomRowY - margin - contentY);
     const int groupListBoxX = margin;
     const int groupListBoxWidth =
         std::max(0, mainWindowSettings_.groupListBoxWidth);
-    const int listBoxX = groupListVisible_
-                             ? groupListBoxX + groupListBoxWidth + margin
-                             : margin;
+    const int listBoxX =
+        groupListVisible_ ? groupListBoxX + groupListBoxWidth + margin : margin;
     const int listBoxWidth = groupListVisible_
                                  ? std::max(0, clientWidth - listBoxX - margin)
                                  : availableWidth;
@@ -217,8 +214,8 @@ void ClipListView::Layout(int clientWidth, int clientHeight) {
     MoveWindow(groupListBox_, groupListBoxX, contentY, groupListBoxWidth,
                contentHeight, TRUE);
     MoveWindow(listBox_, listBoxX, contentY, listBoxWidth, contentHeight, TRUE);
-    MoveWindow(filterTextBox_, filterTextBoxX, bottomRowY,
-               filterTextBoxWidth, controlHeight, TRUE);
+    MoveWindow(filterTextBox_, filterTextBoxX, bottomRowY, filterTextBoxWidth,
+               controlHeight, TRUE);
     MoveWindow(settingsButton_, settingsButtonX, bottomRowY,
                settingsButtonWidth, controlHeight, TRUE);
     ShowWindow(groupListBox_, groupListVisible_ ? SW_SHOW : SW_HIDE);
@@ -632,9 +629,8 @@ void ClipListView::ApplyCurrentFilter(bool preserveSelection) {
                 return true;
             };
 
-            const bool matchesKey =
-                containsFilter(keyToUse, keyFilterToUse,
-                               item->advancedSearchKeys);
+            const bool matchesKey = containsFilter(keyToUse, keyFilterToUse,
+                                                   item->advancedSearchKeys);
 
             auto matchesValueText = [&](const std::wstring &text) {
                 const std::wstring valueToUse =
@@ -721,10 +717,9 @@ void ClipListView::SelectGroupByKeyOrFallback(
     }
 
     auto findGroupKey = [this](const std::wstring &groupKey) {
-        return std::find_if(groups_->begin(), groups_->end(),
-                            [&groupKey](const Group &group) {
-                                return group.key == groupKey;
-                            });
+        return std::find_if(
+            groups_->begin(), groups_->end(),
+            [&groupKey](const Group &group) { return group.key == groupKey; });
     };
 
     if (!preferredGroupKey.empty()) {

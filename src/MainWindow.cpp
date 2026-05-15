@@ -283,8 +283,7 @@ void MainWindow::ActivateSelectedItem(bool copyOnly) {
     std::wstring activationError;
     if (!TryGetActivationText(*selectedItem, &activationText,
                               &activationError)) {
-        MessageBoxW(hwnd_, activationError.c_str(), L"ClipDeck",
-                    MB_ICONERROR);
+        MessageBoxW(hwnd_, activationError.c_str(), L"ClipDeck", MB_ICONERROR);
         return;
     }
 

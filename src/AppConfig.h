@@ -10,16 +10,9 @@ namespace ClipDeck {
 const std::wstring defaultGroupKey = L"default";
 const std::wstring defaultGroupName = L"(no group)";
 
-enum class ClipItemType {
-    Text,
-    File
-};
+enum class ClipItemType { Text, File };
 
-enum class FileLoadMode {
-    OnActivation,
-    Lazy,
-    Eager
-};
+enum class FileLoadMode { OnActivation, Lazy, Eager };
 
 struct ClipItem {
     ClipItemType type = ClipItemType::Text;
